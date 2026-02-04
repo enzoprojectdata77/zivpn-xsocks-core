@@ -15,6 +15,10 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.IntentFilter
 
+import android.net.TrafficStats
+import java.util.Timer
+import java.util.TimerTask
+
 /**
  * ZIVPN Turbo Main Activity
  * Optimized for high-performance tunneling and aggressive cleanup.
@@ -22,10 +26,14 @@ import android.content.IntentFilter
 class MainActivity: FlutterActivity() {
     private val CHANNEL = "com.minizivpn.app/core"
     private val LOG_CHANNEL = "com.minizivpn.app/logs"
+    private val STATS_CHANNEL = "com.minizivpn.app/stats" // New Channel
     private val ACTION_LOG = "com.minizivpn.app.LOG"
     private val REQUEST_VPN_CODE = 1
     
     private var logSink: EventChannel.EventSink? = null
+    private var statsSink: EventChannel.EventSink? = null
+    private var statsTimer: Timer? = null
+    
     private val uiHandler = Handler(Looper.getMainLooper())
 
     private val logReceiver = object : BroadcastReceiver() {
@@ -55,6 +63,20 @@ class MainActivity: FlutterActivity() {
                 }
                 override fun onCancel(arguments: Any?) {
                     logSink = null
+                }
+            }
+        )
+        
+        // Traffic Stats Handler
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, STATS_CHANNEL).setStreamHandler(
+            object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    statsSink = events
+                    startStatsTimer()
+                }
+                override fun onCancel(arguments: Any?) {
+                    statsSink = null
+                    stopStatsTimer()
                 }
             }
         )
@@ -92,6 +114,38 @@ class MainActivity: FlutterActivity() {
                 result.notImplemented()
             }
         }
+    }
+
+    private fun startStatsTimer() {
+        stopStatsTimer()
+        statsTimer = Timer()
+        var lastRx = TrafficStats.getTotalRxBytes()
+        var lastTx = TrafficStats.getTotalTxBytes()
+        
+        statsTimer?.schedule(object : TimerTask() {
+            override fun run() {
+                val currentRx = TrafficStats.getTotalRxBytes()
+                val currentTx = TrafficStats.getTotalTxBytes()
+                
+                val rxSpeed = currentRx - lastRx
+                val txSpeed = currentTx - lastTx
+                
+                lastRx = currentRx
+                lastTx = currentTx
+                
+                // Only send if positive (handle reboot/overflow)
+                if (rxSpeed >= 0 && txSpeed >= 0) {
+                    uiHandler.post {
+                        statsSink?.success("$rxSpeed|$txSpeed")
+                    }
+                }
+            }
+        }, 1000, 1000)
+    }
+
+    private fun stopStatsTimer() {
+        statsTimer?.cancel()
+        statsTimer = null
     }
 
     private fun sendToLog(msg: String) {
@@ -153,6 +207,7 @@ class MainActivity: FlutterActivity() {
     
     override fun onDestroy() {
         stopEngine()
+        stopStatsTimer() // Clean up timer
         try {
             unregisterReceiver(logReceiver)
         } catch (e: Exception) {}

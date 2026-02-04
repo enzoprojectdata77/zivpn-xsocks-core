@@ -53,17 +53,23 @@ class _HomePageState extends State<HomePage> {
   // Core Channels
   static const platform = MethodChannel('com.minizivpn.app/core');
   static const logChannel = EventChannel('com.minizivpn.app/logs');
+  static const statsChannel = EventChannel('com.minizivpn.app/stats');
 
   // App State
   bool _isRunning = false;
   final List<String> _logs = [];
   final ScrollController _logScrollCtrl = ScrollController();
   
+  // Stats
+  String _dlSpeed = "0 KB/s";
+  String _ulSpeed = "0 KB/s";
+  
   @override
   void initState() {
     super.initState();
     _checkVpnStatus();
     _initLogListener();
+    _initStatsListener();
   }
 
   Future<void> _checkVpnStatus() async {
@@ -80,12 +86,33 @@ class _HomePageState extends State<HomePage> {
           _logs.add(event);
           if (_logs.length > 1000) _logs.removeAt(0);
         });
-        // Auto scroll logs if on Log tab
         if (_selectedIndex == 2 && _logScrollCtrl.hasClients) {
           _logScrollCtrl.jumpTo(_logScrollCtrl.position.maxScrollExtent);
         }
       }
     });
+  }
+  
+  void _initStatsListener() {
+    statsChannel.receiveBroadcastStream().listen((event) {
+      if (event is String && mounted) {
+        final parts = event.split('|');
+        if (parts.length == 2) {
+          final rx = int.tryParse(parts[0]) ?? 0;
+          final tx = int.tryParse(parts[1]) ?? 0;
+          setState(() {
+            _dlSpeed = _formatBytes(rx);
+            _ulSpeed = _formatBytes(tx);
+          });
+        }
+      }
+    });
+  }
+  
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return "$bytes B/s";
+    if (bytes < 1024 * 1024) return "{(bytes / 1024).toStringAsFixed(1)} KB/s";
+    return "{(bytes / (1024 * 1024)).toStringAsFixed(1)} MB/s";
   }
 
   Future<void> _toggleVpn() async {
@@ -133,7 +160,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final pages = [
-      DashboardTab(isRunning: _isRunning, onToggle: _toggleVpn),
+      DashboardTab(isRunning: _isRunning, onToggle: _toggleVpn, dl: _dlSpeed, ul: _ulSpeed),
       const ProxiesTab(),
       LogsTab(logs: _logs, scrollController: _logScrollCtrl),
       const SettingsTab(),
@@ -167,8 +194,16 @@ class _HomePageState extends State<HomePage> {
 class DashboardTab extends StatelessWidget {
   final bool isRunning;
   final VoidCallback onToggle;
+  final String dl;
+  final String ul;
 
-  const DashboardTab({super.key, required this.isRunning, required this.onToggle});
+  const DashboardTab({
+    super.key, 
+    required this.isRunning, 
+    required this.onToggle,
+    this.dl = "0 KB/s",
+    this.ul = "0 KB/s"
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -221,12 +256,12 @@ class DashboardTab extends StatelessWidget {
             ),
           ),
           
-          // Traffic Stats (Placeholder for now)
-          const Row(
+          // Traffic Stats (Live)
+          Row(
             children: [
-              Expanded(child: StatCard(label: "Download", value: "0 KB/s", icon: Icons.download, color: Colors.green)),
-              SizedBox(width: 15),
-              Expanded(child: StatCard(label: "Upload", value: "0 KB/s", icon: Icons.upload, color: Colors.orange)),
+              Expanded(child: StatCard(label: "Download", value: dl, icon: Icons.download, color: Colors.green)),
+              const SizedBox(width: 15),
+              Expanded(child: StatCard(label: "Upload", value: ul, icon: Icons.upload, color: Colors.orange)),
             ],
           ),
           const SizedBox(height: 20),
