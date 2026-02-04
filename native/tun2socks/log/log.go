@@ -48,6 +48,7 @@ func logf(lvl Level, template string, args ...any) {
 	s := _globalS
 	_globalMu.RUnlock()
 	s.Logf(lvl, template, args...)
+	emit(lvl, template, args...)
 }
 
 func Debugf(template string, args ...any) {

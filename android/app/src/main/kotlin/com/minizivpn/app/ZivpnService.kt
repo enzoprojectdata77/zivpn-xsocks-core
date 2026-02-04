@@ -31,6 +31,14 @@ class ZivpnService : VpnService() {
     private var vpnInterface: ParcelFileDescriptor? = null
     private val processes = mutableListOf<Process>()
 
+    private val tunLogger = object : mobile.LogHandler {
+        override fun writeLog(message: String?) {
+            if (message != null) {
+                logToApp("[Tun2Socks] $message")
+            }
+        }
+    }
+
     private fun logToApp(msg: String) {
         val intent = Intent(ACTION_LOG)
         intent.putExtra("message", msg)
@@ -187,6 +195,7 @@ class ZivpnService : VpnService() {
                 try {
                     val udpTimeout = 60000L
                     logToApp("Starting Engine with MTU $mtu...")
+                    mobile.Mobile.setLogHandler(tunLogger)
                     mobile.Mobile.start(
                         "socks5://127.0.0.1:7777",
                         "fd://$fd",

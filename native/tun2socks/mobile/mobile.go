@@ -4,8 +4,19 @@ import (
 	"time"
 
 	"github.com/xjasonlyu/tun2socks/v2/engine"
+	"github.com/xjasonlyu/tun2socks/v2/log"
 	_ "github.com/xjasonlyu/tun2socks/v2/dns"
 )
+
+type LogHandler interface {
+	WriteLog(message string)
+}
+
+func SetLogHandler(h LogHandler) {
+	if h != nil {
+		log.SetHandler(h)
+	}
+}
 
 // Start starts the tun2socks engine with the given parameters.
 // udpTimeout is in milliseconds.
