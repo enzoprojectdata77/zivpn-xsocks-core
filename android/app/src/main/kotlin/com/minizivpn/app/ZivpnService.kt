@@ -104,7 +104,7 @@ class ZivpnService : VpnService() {
 
         // 1. START HYSTERIA & LOAD BALANCER
         try {
-            startCores(ip, range, pass, obfs, multiplier.toDouble(), coreCount)
+            startCores(ip, range, pass, obfs, multiplier.toDouble(), coreCount, logLevel)
         } catch (e: Exception) {
             Log.e("ZIVPN-Tun", "Failed to start cores: ${e.message}")
             stopSelf()
@@ -198,7 +198,7 @@ class ZivpnService : VpnService() {
         }
     }
 
-    private fun startCores(ip: String, range: String, pass: String, obfs: String, multiplier: Double, coreCount: Int) {
+    private fun startCores(ip: String, range: String, pass: String, obfs: String, multiplier: Double, coreCount: Int, logLevel: String) {
         val libDir = applicationInfo.nativeLibraryDir
         val libUz = File(libDir, "libuz.so").absolutePath
         val libLoad = File(libDir, "libload.so").absolutePath
