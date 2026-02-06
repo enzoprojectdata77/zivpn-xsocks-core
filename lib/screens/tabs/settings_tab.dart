@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class SettingsTab extends StatefulWidget {
-  const SettingsTab({super.key});
+  final VoidCallback onCheckUpdate;
+
+  const SettingsTab({super.key, required this.onCheckUpdate});
 
   @override
   State<SettingsTab> createState() => _SettingsTabState();
@@ -16,11 +19,18 @@ class _SettingsTabState extends State<SettingsTab> {
   String _bufferSize = "4m";
   String _logLevel = "info";
   double _coreCount = 4.0;
+  String _appVersion = "Unknown";
 
   @override
   void initState() {
     super.initState();
     _loadSettings();
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    if (mounted) setState(() => _appVersion = "v${info.version}");
   }
 
   Future<void> _loadSettings() async {
@@ -100,6 +110,19 @@ class _SettingsTabState extends State<SettingsTab> {
                   _logLevel,
                   ["debug", "info", "error", "silent"],
                   (val) => setState(() => _logLevel = val!),
+                ),
+                const Divider(),
+                ListTile(
+                  leading: const Icon(Icons.system_update),
+                  title: const Text("Check for Updates"),
+                  subtitle: Text("Current: $_appVersion"),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Checking for updates...")),
+                    );
+                    widget.onCheckUpdate();
+                  },
                 ),
               ],
             ),
