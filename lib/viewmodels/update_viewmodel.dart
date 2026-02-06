@@ -26,43 +26,71 @@ class UpdateViewModel {
     _isDownloading.add(true);
     _downloadProgress.add(0.0);
 
-    try {
-      final response = await http.Client().send(http.Request('GET', Uri.parse(version.apkUrl)));
-      final contentLength = response.contentLength ?? 0;
-      
-      // Use temporary directory to avoid storage permission issues
-      final dir = await getTemporaryDirectory();
-      final file = File("${dir.path}/update.apk");
-      
-      // Delete existing file if any
-      if (await file.exists()) {
-        await file.delete();
-      }
-      
-      final sink = file.openWrite();
-      int receivedBytes = 0;
+    int attempts = 0;
+    const maxAttempts = 3;
 
-      await for (var chunk in response.stream) {
-        sink.add(chunk);
-        receivedBytes += chunk.length;
-        if (contentLength > 0) {
-          _downloadProgress.add(receivedBytes / contentLength);
+    while (attempts < maxAttempts) {
+      attempts++;
+      print("Download attempt $attempts of $maxAttempts");
+      
+      try {
+        final response = await http.Client().send(http.Request('GET', Uri.parse(version.apkUrl)));
+        
+        if (response.statusCode != 200) {
+          throw Exception("HTTP ${response.statusCode}");
         }
+
+        final contentLength = response.contentLength ?? 0;
+        
+        // Use temporary directory
+        final dir = await getTemporaryDirectory();
+        final file = File("${dir.path}/update.apk");
+        
+        if (await file.exists()) {
+          await file.delete();
+        }
+        
+        final sink = file.openWrite();
+        int receivedBytes = 0;
+
+        try {
+          await for (var chunk in response.stream) {
+            sink.add(chunk);
+            receivedBytes += chunk.length;
+            if (contentLength > 0) {
+              _downloadProgress.add(receivedBytes / contentLength);
+            }
+          }
+          await sink.flush();
+          await sink.close();
+          
+          // Verify size if possible
+          if (contentLength > 0 && file.lengthSync() != contentLength) {
+             throw Exception("Incomplete download");
+          }
+
+          print("Download completed: ${file.path}");
+          _isDownloading.add(false);
+          _downloadProgress.add(1.0);
+          return file;
+
+        } catch (e) {
+          await sink.close();
+          rethrow; // Catch in outer loop
+        }
+
+      } catch (e) {
+        print("Download error (Attempt $attempts): $e");
+        if (attempts >= maxAttempts) {
+          _isDownloading.add(false);
+          _downloadProgress.add(-1.0);
+          return null;
+        }
+        // Wait before retry (1s, 2s, ...)
+        await Future.delayed(Duration(seconds: attempts));
       }
-      
-      await sink.flush();
-      await sink.close();
-      
-      print("Download completed: ${file.path} (${file.length()} bytes)");
-      _isDownloading.add(false);
-      _downloadProgress.add(1.0);
-      return file;
-    } catch (e) {
-      print("Download error details: $e");
-      _isDownloading.add(false);
-      _downloadProgress.add(-1.0);
-      return null;
     }
+    return null;
   }
 
   void dispose() {
