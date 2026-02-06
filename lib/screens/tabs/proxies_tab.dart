@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
 
-class ProxiesTab extends StatelessWidget {
+class ProxiesTab extends StatefulWidget {
   final List<Map<String, dynamic>> accounts;
   final int activePingIndex;
   final Function(int) onActivate;
@@ -15,6 +16,16 @@ class ProxiesTab extends StatelessWidget {
     required this.onAdd,
     required this.onDelete,
   });
+
+  @override
+  State<ProxiesTab> createState() => _ProxiesTabState();
+}
+
+class _ProxiesTabState extends State<ProxiesTab> with TickerProviderStateMixin {
+  // Ping State
+  final Map<int, String> _pingResults = {};
+  final Map<int, bool> _isPinging = {};
+  final Map<int, AnimationController> _animControllers = {};
 
   String _formatTotalBytes(int bytes) {
     if (bytes < 1024) return "$bytes B";
@@ -49,12 +60,12 @@ class ProxiesTab extends StatelessWidget {
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6C63FF), foregroundColor: Colors.white),
             onPressed: () {
               if (nameCtrl.text.isNotEmpty && ipCtrl.text.isNotEmpty) {
-                onAdd({
+                widget.onAdd({
                   "name": nameCtrl.text,
                   "ip": ipCtrl.text,
                   "auth": authCtrl.text,
                   "obfs": "hu``hqb`c",
-                  "usage": 0, // Init usage
+                  "usage": 0,
                 });
                 Navigator.pop(ctx);
               }
@@ -66,6 +77,95 @@ class ProxiesTab extends StatelessWidget {
     );
   }
 
+  void _showPingDialog(BuildContext context, int index) {
+    final targetCtrl = TextEditingController(text: "google.com");
+    
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF272736),
+        title: const Text("Ping Destination"),
+        content: TextField(
+          controller: targetCtrl,
+          decoration: const InputDecoration(
+            labelText: "Target (IP/Domain)",
+            prefixIcon: Icon(Icons.network_check),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6C63FF), foregroundColor: Colors.white),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _doPing(index, targetCtrl.text);
+            },
+            child: const Text("Ping"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _doPing(int index, String target) async {
+    // Init Animation
+    if (!_animControllers.containsKey(index)) {
+      _animControllers[index] = AnimationController(
+        duration: const Duration(milliseconds: 1000),
+        vsync: this,
+      );
+    }
+    _animControllers[index]!.repeat();
+
+    setState(() {
+      _isPinging[index] = true;
+      _pingResults[index] = "Pinging...";
+    });
+
+    try {
+      // Use native ping command
+      final result = await Process.run('ping', ['-c', '1', '-W', '2', target]);
+      
+      String latency = "Timeout";
+      if (result.exitCode == 0) {
+        // Parse time=xx.xx ms
+        final RegExp regExp = RegExp(r"time=([0-9\.]+) ms");
+        final match = regExp.firstMatch(result.stdout.toString());
+        if (match != null) {
+          latency = "${match.group(1)} ms";
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _pingResults[index] = latency;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _pingResults[index] = "Error";
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isPinging[index] = false;
+        });
+        _animControllers[index]!.stop();
+        _animControllers[index]!.reset();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    for (var controller in _animControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -75,7 +175,7 @@ class ProxiesTab extends StatelessWidget {
         backgroundColor: const Color(0xFF6C63FF),
         child: const Icon(Icons.add, color: Colors.white),
       ),
-      body: accounts.isEmpty 
+      body: widget.accounts.isEmpty 
           ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -88,11 +188,14 @@ class ProxiesTab extends StatelessWidget {
             )
           : ListView.builder(
               padding: const EdgeInsets.all(20),
-              itemCount: accounts.length,
+              itemCount: widget.accounts.length,
               itemBuilder: (context, index) {
-                final acc = accounts[index];
-                final isSelected = index == activePingIndex;
+                final acc = widget.accounts[index];
+                final isSelected = index == widget.activePingIndex;
                 final usage = acc['usage'] ?? 0;
+                
+                final isPinging = _isPinging[index] ?? false;
+                final pingResult = _pingResults[index];
                 
                 return Card(
                   margin: const EdgeInsets.only(bottom: 12),
@@ -100,44 +203,93 @@ class ProxiesTab extends StatelessWidget {
                     borderRadius: BorderRadius.circular(16),
                     side: isSelected ? const BorderSide(color: Color(0xFF6C63FF), width: 2) : BorderSide.none,
                   ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    leading: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: isSelected ? const Color(0xFF6C63FF) : const Color(0xFF6C63FF).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(Icons.dns, color: isSelected ? Colors.white : const Color(0xFF6C63FF)),
-                    ),
-                    title: Text(acc['name'] ?? "Unknown", style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(acc['ip'] ?? "", style: const TextStyle(fontSize: 12)),
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.black26,
-                            borderRadius: BorderRadius.circular(4)
-                          ),
-                          child: Text(
-                            "Used: ${_formatTotalBytes(usage)}", 
-                            style: const TextStyle(fontSize: 10, color: Colors.grey),
-                          ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                      leading: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: isSelected ? const Color(0xFF6C63FF) : const Color(0xFF6C63FF).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                      ],
+                        child: Icon(Icons.dns, color: isSelected ? Colors.white : const Color(0xFF6C63FF)),
+                      ),
+                      title: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(acc['name'] ?? "Unknown", style: const TextStyle(fontWeight: FontWeight.bold)),
+                          if (pingResult != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: pingResult.contains("ms") 
+                                    ? (double.tryParse(pingResult.split(" ")[0]) ?? 999) < 150 ? Colors.green.withValues(alpha: 0.2) : Colors.orange.withValues(alpha: 0.2)
+                                    : Colors.red.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                pingResult, 
+                                style: TextStyle(
+                                  fontSize: 12, 
+                                  fontWeight: FontWeight.bold,
+                                  color: pingResult.contains("ms") 
+                                      ? (double.tryParse(pingResult.split(" ")[0]) ?? 999) < 150 ? Colors.green : Colors.orange
+                                      : Colors.red
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(acc['ip'] ?? "", style: const TextStyle(fontSize: 12)),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.black26,
+                                  borderRadius: BorderRadius.circular(4)
+                                ),
+                                child: Text(
+                                  "Used: ${_formatTotalBytes(usage)}", 
+                                  style: const TextStyle(fontSize: 10, color: Colors.grey),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Ping Button
+                          IconButton(
+                            icon: RotationTransition(
+                              turns: _animControllers[index] ?? const AlwaysStoppedAnimation(0),
+                              child: Icon(
+                                Icons.flash_on, 
+                                color: isPinging ? Colors.yellow : Colors.grey,
+                                size: 20,
+                              ),
+                            ),
+                            onPressed: isPinging ? null : () => _showPingDialog(context, index),
+                          ),
+                          PopupMenuButton(
+                            itemBuilder: (ctx) => [
+                              const PopupMenuItem(value: 'delete', child: Text("Delete")),
+                            ],
+                            onSelected: (val) {
+                              if (val == 'delete') widget.onDelete(index);
+                            },
+                          ),
+                        ],
+                      ),
+                      onTap: () => widget.onActivate(index),
                     ),
-                    trailing: PopupMenuButton(
-                      itemBuilder: (ctx) => [
-                        const PopupMenuItem(value: 'delete', child: Text("Delete")),
-                      ],
-                      onSelected: (val) {
-                        if (val == 'delete') onDelete(index);
-                      },
-                    ),
-                    onTap: () => onActivate(index),
                   ),
                 );
               },
