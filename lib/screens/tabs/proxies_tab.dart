@@ -37,35 +37,41 @@ class _ProxiesTabState extends State<ProxiesTab> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF272736),
-        title: Text(isEditing ? "Edit Account" : "Add Account"),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        title: Row(
+          children: [
+            Icon(isEditing ? Icons.edit_note : Icons.add_circle_outline, color: const Color(0xFF6C63FF)),
+            const SizedBox(width: 12),
+            Text(isEditing ? "Edit Account" : "Add Account", style: const TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(
-                controller: nameCtrl,
-                decoration: const InputDecoration(labelText: "Account Name"),
-              ),
-              TextField(
-                controller: ipCtrl,
-                decoration: const InputDecoration(labelText: "Server IP / Domain"),
-              ),
-              TextField(
-                controller: authCtrl,
-                decoration: const InputDecoration(labelText: "Password"),
-              ),
+              const SizedBox(height: 8),
+              _buildModernInput(nameCtrl, "Account Name", Icons.label_outline),
+              const SizedBox(height: 16),
+              _buildModernInput(ipCtrl, "Server IP / Domain", Icons.dns_outlined),
+              const SizedBox(height: 16),
+              _buildModernInput(authCtrl, "Password", Icons.vpn_key_outlined),
             ],
           ),
         ),
+        actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
+            style: TextButton.styleFrom(foregroundColor: Colors.grey),
             child: const Text("Cancel"),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF6C63FF),
               foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             ),
             onPressed: () {
               final name = nameCtrl.text.trim();
@@ -97,6 +103,24 @@ class _ProxiesTabState extends State<ProxiesTab> {
             child: const Text("Save"),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildModernInput(TextEditingController ctrl, String label, IconData icon) {
+    return TextField(
+      controller: ctrl,
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: Colors.white70),
+        prefixIcon: Icon(icon, color: const Color(0xFF6C63FF).withValues(alpha: 0.7)),
+        filled: true,
+        fillColor: Colors.black.withValues(alpha: 0.2),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFF6C63FF))),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       ),
     );
   }
