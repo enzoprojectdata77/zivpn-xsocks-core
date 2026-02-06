@@ -96,9 +96,9 @@ class UpdateRepository {
         
         if (matchBuild != null) {
           final remoteBuild = int.tryParse(matchBuild.group(1)!);
-          final localBuild = int.tryParse(currentBuildNumber);
+          final localBuild = int.tryParse(currentBuildNumber) ?? 0;
           
-          if (remoteBuild != null && localBuild != null) {
+          if (remoteBuild != null) {
             print("Comparing Build: Remote $remoteBuild vs Local $localBuild");
             return remoteBuild > localBuild;
           }
