@@ -1,7 +1,8 @@
 import 'dart:io';
-import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart'; // Import IOClient
 import 'package:path_provider/path_provider.dart';
 import 'package:rxdart/rxdart.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // Import SharedPreferences
 import '../models/app_version.dart';
 import '../repositories/update_repository.dart';
 
@@ -16,10 +17,28 @@ class UpdateViewModel {
   Stream<double> get downloadProgress => _downloadProgress.stream;
   Stream<bool> get isDownloading => _isDownloading.stream;
 
-  Future<bool> checkForUpdate() async {
+  void checkForUpdate() async {
     final update = await _repository.fetchUpdate();
     _availableUpdate.add(update);
-    return update != null;
+  }
+  
+  // Helper to create client that tunnels through local SOCKS5 if VPN is running
+  Future<http.Client> _createProxiedClient() async {
+    final prefs = await SharedPreferences.getInstance();
+    final isVpnRunning = prefs.getBool('vpn_running') ?? false; // Check Flutter pref
+    // Note: Android service uses "flutter.vpn_running" but Flutter uses "vpn_running". 
+    // Assuming HomePage sets 'vpn_running' correctly.
+
+    final ioc = HttpClient();
+    
+    if (isVpnRunning) {
+        print("UpdateViewModel: VPN is running, using SOCKS5 proxy.");
+        ioc.findProxy = (uri) {
+          return "SOCKS5 127.0.0.1:7777";
+        };
+    }
+    
+    return IOClient(ioc);
   }
 
   Future<File?> startDownload(AppVersion version) async {
@@ -34,7 +53,9 @@ class UpdateViewModel {
       print("Download attempt $attempts of $maxAttempts");
       
       try {
-        final response = await http.Client().send(http.Request('GET', Uri.parse(version.apkUrl)));
+        final client = await _createProxiedClient();
+        final request = http.Request('GET', Uri.parse(version.apkUrl));
+        final response = await client.send(request);
         
         if (response.statusCode != 200) {
           throw Exception("HTTP ${response.statusCode}");
