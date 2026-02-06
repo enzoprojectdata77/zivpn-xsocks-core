@@ -346,6 +346,7 @@ class _HomePageState extends State<HomePage> {
             ),
             LogsTab(logs: _logs, scrollController: _logScrollCtrl),
             SettingsTab(onCheckUpdate: () async {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text("Checking for updates...")),
               );
@@ -362,9 +363,13 @@ class _HomePageState extends State<HomePage> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
-        onDestinationSelected: (i) => setState(() => _selectedIndex = i),
+        onDestinationSelected: (i) {
+          setState(() {
+            _selectedIndex = i;
+          });
+        },
         backgroundColor: const Color(0xFF1E1E2E),
-        indicatorColor: const Color(0xFF6C63FF).withValues(alpha: 0.2),
+        indicatorColor: const Color(0xFF6C63FF).withOpacity(0.2),
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.dashboard_outlined),
