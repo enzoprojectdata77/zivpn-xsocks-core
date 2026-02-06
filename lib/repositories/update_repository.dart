@@ -20,15 +20,16 @@ class UpdateRepository {
       final List releases = json.decode(response.body);
       final packageInfo = await PackageInfo.fromPlatform();
       final currentVersion = packageInfo.version;
+      final currentBuildNumber = packageInfo.buildNumber;
       
-      print("Current App Version: $currentVersion");
+      print("Current App: $currentVersion ($currentBuildNumber)");
       print("Found ${releases.length} releases.");
 
       for (var release in releases) {
-        final tagName = release['tag_name'].toString().replaceAll('v', '');
+        final tagName = release['tag_name'].toString();
         print("Checking release tag: $tagName");
         
-        if (_isNewer(tagName, currentVersion)) {
+        if (_isNewer(tagName, currentVersion, currentBuildNumber)) {
           print("Newer version found: $tagName");
           final assets = release['assets'] as List?;
           if (assets == null) {
@@ -52,8 +53,6 @@ class UpdateRepository {
           } else {
             print("No APK asset found in release $tagName");
           }
-        } else {
-          print("Version $tagName is not newer than $currentVersion");
         }
       }
     } catch (e) {
@@ -63,12 +62,12 @@ class UpdateRepository {
     return null;
   }
 
-  bool _isNewer(String latestTag, String currentVersion) {
+  bool _isNewer(String latestTag, String currentVersion, String currentBuildNumber) {
     try {
-      // Extract x.y.z from tag (e.g. v1.0.2-b55 -> 1.0.2)
-      final RegExp reg = RegExp(r'(\d+)\.(\d+)\.(\d+)');
-      final match1 = reg.firstMatch(latestTag);
-      final match2 = reg.firstMatch(currentVersion);
+      // 1. Parse Semantic Version (1.0.3)
+      final RegExp regVer = RegExp(r'(\d+)\.(\d+)\.(\d+)');
+      final match1 = regVer.firstMatch(latestTag);
+      final match2 = regVer.firstMatch(currentVersion);
 
       if (match1 == null || match2 == null) return false;
 
@@ -89,16 +88,26 @@ class UpdateRepository {
         if (v1[i] < v2[i]) return false;
       }
       
-      // If versions are equal (1.0.2 == 1.0.2), check build number if available in tag
+      // 2. If Versions Equal (1.0.3 == 1.0.3), Compare Build Number
+      // Tag format: v1.0.3-b123
       if (latestTag.contains("-b")) {
-         // Logic: If current app is dev build, maybe we want to update? 
-         // For now, let's assume same version x.y.z means NO update to avoid loops.
-         return false;
+        final RegExp regBuild = RegExp(r'-b(\d+)');
+        final matchBuild = regBuild.firstMatch(latestTag);
+        
+        if (matchBuild != null) {
+          final remoteBuild = int.tryParse(matchBuild.group(1)!);
+          final localBuild = int.tryParse(currentBuildNumber);
+          
+          if (remoteBuild != null && localBuild != null) {
+            print("Comparing Build: Remote $remoteBuild vs Local $localBuild");
+            return remoteBuild > localBuild;
+          }
+        }
       }
       
       return false;
     } catch (e) {
-      print("Version compare error: $e");
+      print("Compare Error: $e");
       return false;
     }
   }
