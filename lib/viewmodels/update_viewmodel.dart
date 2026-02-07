@@ -25,11 +25,11 @@ class UpdateViewModel {
     _isDownloading.add(true);
     _downloadProgress.add(0.0);
 
-    // Strategy: Try Proxy First (Tunnel), then Direct
-    // This helps users with no quota update via VPN.
+    // Strategy: Try HTTP Proxy First (Best for Flutter), then SOCKS5, then Direct
     final strategies = [
-      "SOCKS5 127.0.0.1:7777", // Priority: Via VPN
-      "DIRECT"                 // Fallback: Via WiFi/Data
+      "PROXY 127.0.0.1:7778",  // Priority 1: New HTTP Proxy (Go)
+      "SOCKS5 127.0.0.1:7777", // Priority 2: Legacy SOCKS5
+      "DIRECT"                 // Priority 3: Fallback
     ];
 
     for (final proxy in strategies) {

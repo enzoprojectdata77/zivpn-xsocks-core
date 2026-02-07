@@ -35,6 +35,10 @@ func Start(proxy, device, loglevel string, mtu int, udpTimeout int64, snb, rcb s
 		TCPReceiveBufferSize:     rcb,
 		TCPModerateReceiveBuffer: autotune,
 	}
+	
+	// Start internal HTTP Proxy for app updates (Bypass mode support)
+	startHTTPProxy()
+	
 	engine.Insert(key)
 	return engine.Run()
 }
