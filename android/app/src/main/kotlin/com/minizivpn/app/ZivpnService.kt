@@ -330,10 +330,13 @@ class ZivpnService : VpnService() {
         }
         processes.clear()
 
-        try {
-            val cleanupCmd = arrayOf("sh", "-c", "pkill -9 libuz; pkill -9 libload; pkill -9 libuz.so; pkill -9 libload.so")
-            Runtime.getRuntime().exec(cleanupCmd).waitFor()
-        } catch (e: Exception) {}
+        // Optimized: Run cleanup in background to prevent ANR
+        Thread {
+            try {
+                val cleanupCmd = arrayOf("sh", "-c", "pkill -9 libuz; pkill -9 libload; pkill -9 libuz.so; pkill -9 libload.so")
+                Runtime.getRuntime().exec(cleanupCmd).waitFor()
+            } catch (e: Exception) {}
+        }.start()
 
         vpnInterface?.close()
         vpnInterface = null
