@@ -90,9 +90,11 @@ class _PingButtonState extends State<PingButton> with SingleTickerProviderStateM
 
       // 2. Fallback: TCP Handshake (Layer 4)
       try {
+        final sw = Stopwatch()..start();
         final socket = await Socket.connect('1.1.1.1', 80, timeout: const Duration(seconds: 3));
+        sw.stop();
         socket.destroy();
-        return "TCP OK";
+        return "TCP ${sw.elapsedMilliseconds} ms";
       } catch (_) {
         // 3. Last Resort: Package HTTP (High Level)
         try {
@@ -110,11 +112,13 @@ class _PingButtonState extends State<PingButton> with SingleTickerProviderStateM
   Color _getColor(String res) {
     if (res == "Pinging...") return Colors.white;
     if (res.contains("ms")) {
-      final ms = int.tryParse(res.split(' ')[0]) ?? 999;
+      final msStr = res.split(' ')[0] == "TCP" ? res.split(' ')[1] : res.split(' ')[0];
+      final ms = int.tryParse(msStr) ?? 999;
+      
+      if (res.startsWith("TCP")) return Colors.cyanAccent; // Always cyan for TCP to distinguish
       if (ms < 150) return Colors.greenAccent;
       if (ms < 300) return Colors.yellow;
     }
-    if (res == "TCP OK") return Colors.cyanAccent;
     if (res == "Gstatic OK") return Colors.lightGreenAccent;
     if (res == "HTTP OK") return Colors.lightBlueAccent;
     return Colors.redAccent;
