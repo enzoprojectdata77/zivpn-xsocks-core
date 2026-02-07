@@ -60,8 +60,6 @@ class _HomePageState extends State<HomePage> {
     _updateViewModel.checkForUpdate();
   }
 
-  // ... (existing code for _showUpdateDialog, _executeDownload) ...
-
   @override
   void dispose() {
     _timer?.cancel();
@@ -73,7 +71,138 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
-  // ... (existing code for _loadData, _saveAccounts, _startTimer, _initLogListener) ...
+  void _showUpdateDialog(AppVersion update) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF272736),
+        title: Text("Update Available: v${update.name}"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Size: ${(update.apkSize / (1024 * 1024)).toStringAsFixed(2)} MB"),
+            const SizedBox(height: 10),
+            const Text("Changelog:"),
+            Container(
+              constraints: const BoxConstraints(maxHeight: 200),
+              child: SingleChildScrollView(child: Text(update.description)),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context), 
+            child: const Text("Later")
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6C63FF)),
+            onPressed: () {
+              Navigator.pop(context);
+              _executeDownload(update);
+            },
+            child: const Text("Update Now"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _executeDownload(AppVersion update) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StreamBuilder<double>(
+        stream: _updateViewModel.downloadProgress,
+        builder: (context, snapshot) {
+          double progress = snapshot.data ?? 0.0;
+          return AlertDialog(
+            backgroundColor: const Color(0xFF272736),
+            title: const Text("Downloading Update..."),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                LinearProgressIndicator(
+                  value: progress >= 0 ? progress : null,
+                  color: const Color(0xFF6C63FF),
+                ),
+                const SizedBox(height: 10),
+                Text(progress >= 0 ? "${(progress * 100).toStringAsFixed(0)}%" : "Connecting..."),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+
+    final file = await _updateViewModel.startDownload(update);
+    if (mounted) Navigator.pop(context); // Close progress dialog
+
+    if (file != null) {
+      await OpenFilex.open(file.path);
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Download failed")),
+      );
+    }
+  }
+
+  Future<void> _loadData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? jsonStr = prefs.getString('saved_accounts');
+    if (jsonStr != null) {
+      _accounts = List<Map<String, dynamic>>.from(jsonDecode(jsonStr));
+    }
+    
+    final isRunning = prefs.getBool('vpn_running') ?? false;
+    final startMillis = prefs.getInt('vpn_start_time');
+    final currentIp = prefs.getString('ip') ?? "";
+    
+    if (currentIp.isNotEmpty) {
+      _activeAccountIndex = _accounts.indexWhere((acc) => acc['ip'] == currentIp);
+    }
+    
+    setState(() {
+      _vpnState = isRunning ? "connected" : "disconnected";
+      if (isRunning && startMillis != null) {
+        _startTime = DateTime.fromMillisecondsSinceEpoch(startMillis);
+        _startTimer();
+      }
+    });
+  }
+
+  Future<void> _saveAccounts() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('saved_accounts', jsonEncode(_accounts));
+  }
+
+  void _startTimer() {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_startTime == null) return;
+      final diff = DateTime.now().difference(_startTime!);
+      String twoDigits(int n) => n.toString().padLeft(2, "0");
+      setState(() {
+        _durationString =
+            "${twoDigits(diff.inHours)}:${twoDigits(diff.inMinutes.remainder(60))}:${twoDigits(diff.inSeconds.remainder(60))}";
+      });
+    });
+  }
+
+  void _initLogListener() {
+    logChannel.receiveBroadcastStream().listen((event) {
+      if (event is String && mounted) {
+        setState(() {
+          _logs.add(event);
+          if (_logs.length > 1000) _logs.removeAt(0);
+        });
+        if (_selectedIndex == 2 && _logScrollCtrl.hasClients) {
+          _logScrollCtrl.jumpTo(_logScrollCtrl.position.maxScrollExtent);
+        }
+      }
+    });
+  }
 
   void _initStatsListener() {
     statsChannel.receiveBroadcastStream().listen((event) {
@@ -98,12 +227,16 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  // ... (existing code for _formatBytes) ...
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return "$bytes B/s";
+    if (bytes < 1024 * 1024) return "${(bytes / 1024).toStringAsFixed(1)} KB/s";
+    return "${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB/s";
+  }
 
   Future<void> _toggleVpn() async {
     HapticFeedback.mediumImpact();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.reload(); // Force reload to get latest settings from other tabs
+    await prefs.reload(); // Force reload
 
     if (_vpnState == "connected") {
       try {
@@ -117,6 +250,8 @@ class _HomePageState extends State<HomePage> {
         // Reset stats via notifier
         _sessionRx.value = 0;
         _sessionTx.value = 0;
+        _dlSpeed.value = "0 KB/s";
+        _ulSpeed.value = "0 KB/s";
         
         await prefs.remove('vpn_start_time');
         await _saveAccounts();
@@ -124,7 +259,43 @@ class _HomePageState extends State<HomePage> {
         _logs.add("Error stopping: $e");
       }
     } else {
-        // ... (existing code) ...
+      final ip = prefs.getString('ip') ?? "";
+      if (ip.isEmpty) {
+        setState(() => _selectedIndex = 3); // Go to settings
+        return;
+      }
+
+      setState(() => _vpnState = "connecting");
+
+      try {
+        await platform.invokeMethod('startCore', {
+          "ip": ip,
+          "port_range": prefs.getString('port_range') ?? "6000-19999",
+          "pass": prefs.getString('auth') ?? "",
+          "obfs": prefs.getString('obfs') ?? "hu``hqb`c",
+          "recv_window_multiplier": 4.0,
+          "udp_mode": "udp",
+          "mtu": int.tryParse(prefs.getString('mtu') ?? "1200") ?? 1200,
+          "auto_tuning": prefs.getBool('auto_tuning') ?? true,
+          "enable_badvpn": prefs.getBool('enable_badvpn') ?? false,
+          "buffer_size": prefs.getString('buffer_size') ?? "4m",
+          "log_level": prefs.getString('log_level') ?? "info",
+          "core_count": (prefs.getInt('core_count') ?? 4)
+        });
+        await platform.invokeMethod('startVpn');
+
+        final now = DateTime.now();
+        await prefs.setInt('vpn_start_time', now.millisecondsSinceEpoch);
+        _startTime = now;
+        _startTimer();
+
+        setState(() => _vpnState = "connected");
+      } catch (e) {
+        setState(() {
+          _vpnState = "disconnected";
+          _logs.add("Start Failed: $e");
+        });
+      }
     }
   }
 
@@ -139,9 +310,12 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _activeAccountIndex = index;
     });
+    
     // Reset stats via notifier
     _sessionRx.value = 0;
     _sessionTx.value = 0;
+    _dlSpeed.value = "0 KB/s";
+    _ulSpeed.value = "0 KB/s";
 
     if (_vpnState == "connected") {
       await _toggleVpn(); // Stop
@@ -166,4 +340,72 @@ class _HomePageState extends State<HomePage> {
               sessionRx: _sessionRx,
               sessionTx: _sessionTx,
             ),
-            // ... (rest of the build method) ...
+            ProxiesTab(
+              accounts: _accounts,
+              activePingIndex: _activeAccountIndex,
+              onActivate: _handleAccountSwitch,
+              onAdd: (acc) {
+                setState(() => _accounts.add(acc));
+                _saveAccounts();
+              },
+              onEdit: (index, newAcc) {
+                setState(() => _accounts[index] = newAcc);
+                _saveAccounts();
+              },
+              onDelete: (index) {
+                setState(() => _accounts.removeAt(index));
+                _saveAccounts();
+              },
+            ),
+            LogsTab(logs: _logs, scrollController: _logScrollCtrl),
+            SettingsTab(onCheckUpdate: () async {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Checking for updates...")),
+              );
+              final hasUpdate = await _updateViewModel.checkForUpdate();
+              if (!hasUpdate && mounted) {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("You are using the latest version!")),
+                );
+              }
+            }),
+          ],
+        ),
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: (i) {
+          setState(() {
+            _selectedIndex = i;
+          });
+        },
+        backgroundColor: const Color(0xFF1E1E2E),
+        indicatorColor: const Color(0xFF6C63FF).withValues(alpha: 0.2),
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.dashboard_outlined),
+            selectedIcon: Icon(Icons.dashboard),
+            label: 'Dashboard',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.public_outlined),
+            selectedIcon: Icon(Icons.public),
+            label: 'Proxies',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.terminal_outlined),
+            selectedIcon: Icon(Icons.terminal),
+            label: 'Logs',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings),
+            label: 'Settings',
+          ),
+        ],
+      ),
+    );
+  }
+}
