@@ -26,81 +26,78 @@ class UpdateViewModel {
     _isDownloading.add(true);
     _downloadProgress.add(0.0);
 
-    int attempts = 0;
-    const maxAttempts = 3;
+    // Strategy: Try Proxy First (Tunnel), then Direct
+    // This helps users with no quota update via VPN.
+    final strategies = [
+      "SOCKS5 127.0.0.1:7777", // Priority: Via VPN
+      "DIRECT"                 // Fallback: Via WiFi/Data
+    ];
 
-    while (attempts < maxAttempts) {
-      attempts++;
-      print("Download attempt $attempts of $maxAttempts");
-      
+    for (final proxy in strategies) {
+      print("Attempting download via: $proxy");
       try {
-        final prefs = await SharedPreferences.getInstance();
-        final isVpnRunning = prefs.getBool('vpn_running') ?? false;
-
-        final client = HttpClient();
-        if (isVpnRunning) {
-          client.findProxy = (uri) => "SOCKS5 127.0.0.1:7777";
-        }
-        client.connectionTimeout = const Duration(seconds: 10);
-
-        final request = await client.getUrl(Uri.parse(version.apkUrl));
-        final response = await request.close();
-        
-        if (response.statusCode != 200) {
-          client.close();
-          throw Exception("HTTP ${response.statusCode}");
-        }
-
-        final contentLength = response.contentLength;
-        final dir = await getTemporaryDirectory();
-        final fileName = "update_${version.name}.apk";
-        final file = File("${dir.path}/$fileName");
-        
-        if (await file.exists()) {
-          await file.delete();
-        }
-        
-        final sink = file.openWrite();
-        int receivedBytes = 0;
-
-        try {
-          await for (var chunk in response) {
-            sink.add(chunk);
-            receivedBytes += chunk.length;
-            if (contentLength > 0) {
-              _downloadProgress.add(receivedBytes / contentLength.toDouble());
-            }
-          }
-          await sink.flush();
-          await sink.close();
-          client.close();
-          
-          if (contentLength > 0 && file.lengthSync() != contentLength) {
-             throw Exception("Incomplete download");
-          }
-
-          print("Download completed: ${file.path}");
+        final file = await _executeDownload(version, proxy);
+        if (file != null) {
           _isDownloading.add(false);
           _downloadProgress.add(1.0);
           return file;
-
-        } catch (e) {
-          await sink.close();
-          client.close();
-          rethrow;
         }
-
       } catch (e) {
-        print("Download error (Attempt $attempts): $e");
-        if (attempts >= maxAttempts) {
-          _isDownloading.add(false);
-          _downloadProgress.add(-1.0);
-          return null;
-        }
-        await Future.delayed(Duration(seconds: attempts));
+        print("Download failed via $proxy: $e");
       }
     }
+    
+    _isDownloading.add(false);
+    _downloadProgress.add(-1.0);
     return null;
+  }
+
+  Future<File?> _executeDownload(AppVersion version, String proxyConf) async {
+    final client = HttpClient();
+    client.connectionTimeout = const Duration(seconds: 15);
+    
+    // Force Proxy Config
+    if (proxyConf != "DIRECT") {
+      client.findProxy = (uri) => proxyConf;
+    }
+
+    try {
+      final request = await client.getUrl(Uri.parse(version.apkUrl));
+      final response = await request.close();
+      
+      if (response.statusCode != 200) {
+        throw Exception("HTTP ${response.statusCode}");
+      }
+
+      final contentLength = response.contentLength;
+      final dir = await getTemporaryDirectory();
+      final fileName = "update_${version.name}.apk";
+      final file = File("${dir.path}/$fileName");
+      
+      if (await file.exists()) {
+        await file.delete();
+      }
+      
+      final sink = file.openWrite();
+      int receivedBytes = 0;
+
+      await for (var chunk in response) {
+        sink.add(chunk);
+        receivedBytes += chunk.length;
+        if (contentLength > 0) {
+          _downloadProgress.add(receivedBytes / contentLength.toDouble());
+        }
+      }
+      await sink.flush();
+      await sink.close();
+      
+      if (contentLength > 0 && file.lengthSync() != contentLength) {
+          throw Exception("Incomplete download");
+      }
+      return file;
+    } finally {
+      client.close();
+    }
   }
 
   void dispose() {
