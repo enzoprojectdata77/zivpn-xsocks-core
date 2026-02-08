@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../app_colors.dart';
 
 class ProxiesTab extends StatefulWidget {
   final List<Map<String, dynamic>> accounts;
@@ -40,11 +41,11 @@ class _ProxiesTabState extends State<ProxiesTab> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF272736),
+        backgroundColor: AppColors.card,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
         title: Row(
           children: [
-            Icon(isEditing ? Icons.edit_note : Icons.add_circle_outline, color: const Color(0xFF6C63FF)),
+            Icon(isEditing ? Icons.edit_note : Icons.add_circle_outline, color: AppColors.primary),
             const SizedBox(width: 12),
             Text(isEditing ? "Edit Account" : "Add Account", style: const TextStyle(fontWeight: FontWeight.bold)),
           ],
@@ -71,7 +72,7 @@ class _ProxiesTabState extends State<ProxiesTab> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF6C63FF),
+              backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
               elevation: 0,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -118,12 +119,12 @@ class _ProxiesTabState extends State<ProxiesTab> {
       decoration: InputDecoration(
         labelText: label,
         labelStyle: const TextStyle(color: Colors.white70),
-        prefixIcon: Icon(icon, color: const Color(0xFF6C63FF).withValues(alpha: 0.7)),
+        prefixIcon: Icon(icon, color: AppColors.primary.withValues(alpha: 0.7)),
         filled: true,
-        fillColor: Colors.black.withValues(alpha: 0.2),
+        fillColor: AppColors.inputFill,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFF6C63FF))),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primary)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       ),
     );
@@ -135,7 +136,7 @@ class _ProxiesTabState extends State<ProxiesTab> {
       backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAccountDialog(context),
-        backgroundColor: const Color(0xFF6C63FF),
+        backgroundColor: AppColors.primary,
         child: const Icon(Icons.add, color: Colors.white),
       ),
       body: widget.accounts.isEmpty
@@ -152,14 +153,14 @@ class _ProxiesTabState extends State<ProxiesTab> {
                   margin: const EdgeInsets.only(bottom: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
-                    side: isSelected ? const BorderSide(color: Color(0xFF6C63FF), width: 2) : BorderSide.none,
+                    side: isSelected ? const BorderSide(color: AppColors.primary, width: 2) : BorderSide.none,
                   ),
                   child: ListTile(
                     contentPadding: const EdgeInsets.all(12),
                     leading: Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: isSelected ? const Color(0xFF6C63FF) : Colors.white10,
+                        color: isSelected ? AppColors.primary : Colors.white10,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(

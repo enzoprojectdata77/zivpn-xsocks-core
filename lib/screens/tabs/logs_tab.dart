@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../app_colors.dart';
 
 class LogsTab extends StatelessWidget {
   final List<String> logs;
@@ -53,7 +54,7 @@ class LogsTab extends StatelessWidget {
             margin: const EdgeInsets.symmetric(horizontal: 16),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF0F0F12),
+              color: AppColors.logBackground,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.white10),
             ),

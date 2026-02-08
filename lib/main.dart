@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'app_colors.dart';
 import 'screens/home_page.dart';
 
 void main() {
@@ -17,18 +18,18 @@ class MiniZivpnApp extends StatelessWidget {
         useMaterial3: true,
         brightness: Brightness.dark,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF6C63FF),
+          seedColor: AppColors.primary,
           brightness: Brightness.dark,
-          surface: const Color(0xFF1E1E2E),
+          surface: AppColors.surface,
         ),
-        scaffoldBackgroundColor: const Color(0xFF121218),
+        scaffoldBackgroundColor: AppColors.background,
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.transparent,
           elevation: 0,
           centerTitle: true,
         ),
         cardTheme: CardThemeData(
-          color: const Color(0xFF272736),
+          color: AppColors.card,
           elevation: 4,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),

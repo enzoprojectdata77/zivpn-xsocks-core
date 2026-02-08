@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:open_filex/open_filex.dart';
 
+import '../app_colors.dart';
 import 'tabs/dashboard_tab.dart';
 import 'tabs/proxies_tab.dart';
 import 'tabs/logs_tab.dart';
@@ -76,7 +77,7 @@ class _HomePageState extends State<HomePage> {
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF272736),
+        backgroundColor: AppColors.card,
         title: Text("Update Available: v${update.name}"),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -97,7 +98,7 @@ class _HomePageState extends State<HomePage> {
             child: const Text("Later")
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6C63FF)),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
             onPressed: () {
               Navigator.pop(context);
               _executeDownload(update);
@@ -118,14 +119,14 @@ class _HomePageState extends State<HomePage> {
         builder: (context, snapshot) {
           double progress = snapshot.data ?? 0.0;
           return AlertDialog(
-            backgroundColor: const Color(0xFF272736),
+            backgroundColor: AppColors.card,
             title: const Text("Downloading Update..."),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 LinearProgressIndicator(
                   value: progress >= 0 ? progress : null,
-                  color: const Color(0xFF6C63FF),
+                  color: AppColors.primary,
                 ),
                 const SizedBox(height: 10),
                 Text(progress >= 0 ? "${(progress * 100).toStringAsFixed(0)}%" : "Connecting..."),
@@ -381,8 +382,8 @@ class _HomePageState extends State<HomePage> {
             _selectedIndex = i;
           });
         },
-        backgroundColor: const Color(0xFF1E1E2E),
-        indicatorColor: const Color(0xFF6C63FF).withValues(alpha: 0.2),
+        backgroundColor: AppColors.surface,
+        indicatorColor: AppColors.primaryLow,
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.dashboard_outlined),
