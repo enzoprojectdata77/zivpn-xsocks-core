@@ -30,6 +30,8 @@ class _HomePageState extends State<HomePage> {
 
   String _vpnState = "disconnected"; // disconnected, connecting, connected
   final List<String> _logs = [];
+  final List<String> _logBuffer = [];
+  Timer? _logFlushTimer;
   final ScrollController _logScrollCtrl = ScrollController();
   
   List<Map<String, dynamic>> _accounts = [];
@@ -64,6 +66,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     _timer?.cancel();
+    _logFlushTimer?.cancel();
     _updateViewModel.dispose();
     _dlSpeed.dispose();
     _ulSpeed.dispose();
@@ -194,15 +197,33 @@ class _HomePageState extends State<HomePage> {
   void _initLogListener() {
     logChannel.receiveBroadcastStream().listen((event) {
       if (event is String && mounted) {
-        setState(() {
-          _logs.add(event);
-          if (_logs.length > 1000) _logs.removeAt(0);
-        });
-        if (_selectedIndex == 2 && _logScrollCtrl.hasClients) {
-          _logScrollCtrl.jumpTo(_logScrollCtrl.position.maxScrollExtent);
+        _logBuffer.add(event);
+        if (_logFlushTimer == null || !_logFlushTimer!.isActive) {
+          _logFlushTimer = Timer(const Duration(milliseconds: 200), _flushLogs);
         }
       }
     });
+  }
+
+  void _flushLogs() {
+    if (!mounted || _logBuffer.isEmpty) return;
+    
+    setState(() {
+      _logs.addAll(_logBuffer);
+      _logBuffer.clear();
+      if (_logs.length > 1000) {
+        _logs.removeRange(0, _logs.length - 1000);
+      }
+    });
+
+    if (_selectedIndex == 2 && _logScrollCtrl.hasClients) {
+      // Scroll to bottom after frame build
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_logScrollCtrl.hasClients) {
+          _logScrollCtrl.jumpTo(_logScrollCtrl.position.maxScrollExtent);
+        }
+      });
+    }
   }
 
   void _initStatsListener() {

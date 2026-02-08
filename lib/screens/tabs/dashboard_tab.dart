@@ -36,11 +36,18 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
     super.initState();
     _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1000),
+      duration: const Duration(milliseconds: 800),
     );
     _pulseAnimation = Tween<double>(begin: 0.0, end: 20.0).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
+    
+    // Debug listener
+    _pulseController.addListener(() {
+      if (widget.vpnState == "connecting" && _pulseController.value == 0.0) {
+         print("Pulse Anim Tick: ${_pulseAnimation.value}"); 
+      }
+    });
     
     if (widget.vpnState == "connecting") {
       _pulseController.repeat(reverse: true);
@@ -50,11 +57,16 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
   @override
   void didUpdateWidget(DashboardTab oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.vpnState == "connecting" && !_pulseController.isAnimating) {
-      _pulseController.repeat(reverse: true);
-    } else if (widget.vpnState != "connecting" && _pulseController.isAnimating) {
-      _pulseController.stop();
-      _pulseController.reset();
+    if (widget.vpnState != oldWidget.vpnState) {
+      print("DashboardTab State Change: ${oldWidget.vpnState} -> ${widget.vpnState}");
+      if (widget.vpnState == "connecting") {
+        print("Starting Pulse Animation");
+        _pulseController.repeat(reverse: true);
+      } else {
+        print("Stopping Pulse Animation");
+        _pulseController.stop();
+        _pulseController.reset();
+      }
     }
   }
 
