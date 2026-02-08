@@ -23,6 +23,8 @@ import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
 
+import android.os.PowerManager
+
 /**
  * ZIVPN TunService
  * Handles the VpnService interface and integrates with tun2socks via JNI.
@@ -40,6 +42,7 @@ class ZivpnService : VpnService() {
 
     private var vpnInterface: ParcelFileDescriptor? = null
     private val processes = mutableListOf<Process>()
+    private var wakeLock: PowerManager.WakeLock? = null
 
     private val tunLogger = object : mobile.LogHandler {
         override fun writeLog(message: String?) {
@@ -148,6 +151,14 @@ class ZivpnService : VpnService() {
         val bufferSize = prefs.getString("buffer_size", "4m") ?: "4m"
         val logLevel = prefs.getString("log_level", "info") ?: "info"
         val coreCount = prefs.getInt("core_count", 4)
+        val useWakelock = prefs.getBoolean("cpu_wakelock", false)
+
+        if (useWakelock) {
+            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+            wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MiniZivpn::CoreWakelock")
+            wakeLock?.acquire()
+            logToApp("CPU Wakelock acquired")
+        }
 
         // 1. START HYSTERIA & LOAD BALANCER
         try {
@@ -312,6 +323,12 @@ class ZivpnService : VpnService() {
 
     private fun disconnect() {
         Log.i("ZIVPN-Tun", "Stopping VPN and cores...")
+        
+        if (wakeLock?.isHeld == true) {
+            wakeLock?.release()
+            logToApp("CPU Wakelock released")
+        }
+        wakeLock = null
         
         try {
             mobile.Mobile.stop()

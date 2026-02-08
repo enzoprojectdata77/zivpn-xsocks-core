@@ -281,7 +281,8 @@ class _HomePageState extends State<HomePage> {
           "enable_badvpn": prefs.getBool('enable_badvpn') ?? false,
           "buffer_size": prefs.getString('buffer_size') ?? "4m",
           "log_level": prefs.getString('log_level') ?? "info",
-          "core_count": (prefs.getInt('core_count') ?? 4)
+          "core_count": (prefs.getInt('core_count') ?? 4),
+          "cpu_wakelock": prefs.getBool('cpu_wakelock') ?? false
         });
         await platform.invokeMethod('startVpn');
 
