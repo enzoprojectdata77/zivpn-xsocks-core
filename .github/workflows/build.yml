@@ -93,7 +93,7 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/update-repo'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/update-repo'
     permissions:
       contents: write
     steps:
