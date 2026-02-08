@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import '../../app_colors.dart';
 
 class SettingsTab extends StatefulWidget {
   final VoidCallback onCheckUpdate;
@@ -129,7 +130,7 @@ class _SettingsTabState extends State<SettingsTab> {
           icon: const Icon(Icons.save),
           label: const Text("Save Configuration"),
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF6C63FF),
+            backgroundColor: AppColors.primary,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 16),
           ),
@@ -146,7 +147,7 @@ class _SettingsTabState extends State<SettingsTab> {
         prefixIcon: Icon(icon),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         filled: true,
-        fillColor: const Color(0xFF272736),
+        fillColor: AppColors.card,
       ),
     );
   }

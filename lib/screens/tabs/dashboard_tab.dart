@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart'; // Import for ValueListenable
 import 'package:flutter/material.dart';
+import '../../app_colors.dart';
 import '../../widgets/ping_button.dart';
 
 class DashboardTab extends StatefulWidget {
@@ -31,7 +32,7 @@ class _DashboardTabState extends State<DashboardTab> {
   Widget build(BuildContext context) {
     bool isConnected = widget.vpnState == "connected";
     bool isConnecting = widget.vpnState == "connecting";
-    Color statusColor = isConnected ? const Color(0xFF6C63FF) : (isConnecting ? Colors.orange : const Color(0xFF272736));
+    Color statusColor = isConnected ? AppColors.primary : (isConnecting ? Colors.orange : AppColors.card);
 
     return Padding(
       padding: const EdgeInsets.all(20.0),
@@ -64,7 +65,7 @@ class _DashboardTabState extends State<DashboardTab> {
                         color: statusColor,
                         boxShadow: [
                           BoxShadow(
-                            color: (isConnected ? const Color(0xFF6C63FF) : Colors.black)
+                            color: (isConnected ? AppColors.primary : Colors.black)
                                 .withValues(alpha: 0.4),
                             blurRadius: 30,
                             spreadRadius: 10,
@@ -135,7 +136,7 @@ class _DashboardTabState extends State<DashboardTab> {
             padding: const EdgeInsets.all(12),
             margin: const EdgeInsets.only(bottom: 15),
             decoration: BoxDecoration(
-              color: const Color(0xFF272736),
+              color: AppColors.card,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
             ),
@@ -230,7 +231,7 @@ class StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF272736),
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(

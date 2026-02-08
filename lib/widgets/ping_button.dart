@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../app_colors.dart';
 
 class PingButton extends StatefulWidget {
   const PingButton({super.key});
@@ -134,13 +135,13 @@ class _PingButtonState extends State<PingButton> with SingleTickerProviderStateM
             FloatingActionButton.small(
               heroTag: "ping_btn",
               onPressed: _doPing,
-              backgroundColor: const Color(0xFF272736),
+              backgroundColor: AppColors.card,
               elevation: 4,
               child: RotationTransition(
                 turns: _animController,
                 child: Icon(
                   Icons.flash_on,
-                  color: _isPinging ? Colors.yellow : const Color(0xFF6C63FF),
+                  color: _isPinging ? Colors.yellow : AppColors.primary,
                 ),
               ),
             ),
