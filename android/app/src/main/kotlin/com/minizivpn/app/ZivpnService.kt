@@ -172,16 +172,27 @@ class ZivpnService : VpnService() {
         builder.setConfigureIntent(pendingIntent)
         builder.setMtu(mtu)
         
-        // Use exact production routes from Zivpn
-        for (route in Routing.ZIVPN_ROUTES) {
-            try {
-                builder.addRoute(route.first, route.second)
-            } catch (e: Exception) {
-                Log.e("ZIVPN-Tun", "Failed to add route: ${route.first}/${route.second}")
+        // DYNAMIC ROUTING: Generate routes that cover the world but exclude the Server IP
+        try {
+            // Resolve IP if it's a hostname (simple blocking call for now)
+            val serverHost = prefs.getString("server_ip", "") ?: ""
+            logToApp("Resolving dynamic routes for server: $serverHost")
+            
+            val dynamicRoutes = RoutingUtils.calculateDynamicRoutes(serverHost)
+            for (route in dynamicRoutes) {
+                try {
+                    builder.addRoute(route.first, route.second)
+                } catch (e: Exception) {}
             }
+            logToApp("Added ${dynamicRoutes.size} dynamic routes.")
+            
+        } catch (e: Exception) {
+            Log.e("ZIVPN-Tun", "Failed to calculate dynamic routes, using fallback")
+            builder.addRoute("0.0.0.0", 1)
+            builder.addRoute("128.0.0.0", 1)
         }
         
-        // Add Local/Fake IP Route
+        // Handle Fake-IP and DNS Hijacking
         try {
             builder.addRoute("169.254.1.0", 24)
             builder.addRoute("198.18.0.0", 15)
@@ -191,7 +202,7 @@ class ZivpnService : VpnService() {
             builder.addDisallowedApplication(packageName)
         } catch (e: Exception) {}
 
-        // Set System DNS to the virtual DNS IP used by Zivpn
+        // Virtual DNS setup (Zivpn Standard)
         builder.addDnsServer("169.254.1.2")
         builder.addAddress("169.254.1.1", 24)
 
