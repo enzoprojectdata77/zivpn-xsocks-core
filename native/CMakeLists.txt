@@ -110,10 +110,15 @@ add_library(system SHARED
 target_include_directories(system PRIVATE libancillary)
 target_compile_options(system PRIVATE -O3)
 
-# For android_getCpuFamily
-include(AndroidNdkModules)
-android_ndk_import_module_cpufeatures()
-target_link_libraries(system ancillary log dl cpufeatures)
+# For android_getCpuFamily - Only include if running within NDK context
+if(ANDROID_NDK_REVISION)
+    include(AndroidNdkModules)
+    android_ndk_import_module_cpufeatures()
+    target_link_libraries(system ancillary log dl cpufeatures)
+    target_compile_definitions(system PRIVATE HAVE_CPU_FEATURES)
+else()
+    target_link_libraries(system ancillary log dl)
+endif()
 
 # --- pdnsd ---
 file(GLOB PDNSD_SOURCES "pdnsd/src/*.c")

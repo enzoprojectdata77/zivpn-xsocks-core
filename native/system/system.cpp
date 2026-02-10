@@ -6,7 +6,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
+
+#ifdef HAVE_CPU_FEATURES
 #include <cpu-features.h>
+#endif
 
 #include <sys/un.h>
 #include <sys/stat.h>
@@ -22,6 +25,7 @@
 
 static jstring
 getABI(JNIEnv *env, jobject thiz) {
+#ifdef HAVE_CPU_FEATURES
     AndroidCpuFamily family = android_getCpuFamily();
     uint64_t features = android_getCpuFeatures();
     const char *abi;
@@ -34,6 +38,9 @@ getABI(JNIEnv *env, jobject thiz) {
         abi = "armeabi-v7a";
     }
     return env->NewStringUTF(abi);
+#else
+    return env->NewStringUTF("unknown");
+#endif
 }
 
 static void
