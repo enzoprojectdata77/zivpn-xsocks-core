@@ -21,6 +21,7 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
+          cache: 'gradle'
 
       - name: Setup Android Environment
         uses: android-actions/setup-android@v3
@@ -48,7 +49,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          cache: false
+          cache: true
 
       - name: Clean & Get Flutter Dependencies
         run: |
