@@ -14,10 +14,10 @@ object Pdnsd {
         
         val configFile = File(context.filesDir, "pdnsd.conf")
         
-        // Final configuration optimized to match Zivpn production settings
+        // Using OpenDNS over port 443 (TCP) to bypass port 53 restrictions and avoid loops
         val conf = """
             global {
-                perm_cache=1024;
+                perm_cache=2048;
                 cache_dir="${cacheDir.absolutePath}";
                 server_ip = 169.254.1.1;
                 server_port = $listenPort;
@@ -31,17 +31,17 @@ object Pdnsd {
             }
 
             server {
-                label= "google-primary";
-                ip = 8.8.8.8;
-                port = 53;
+                label= "opendns-https-port";
+                ip = 208.67.222.222;
+                port = 443;
                 uptest = none;
                 proxy_only=on;
             }
 
             server {
-                label= "google-secondary";
-                ip = 8.8.4.4;
-                port = 53;
+                label= "opendns-backup";
+                ip = 208.67.220.220;
+                port = 443;
                 uptest = none;
                 proxy_only=on;
             }
