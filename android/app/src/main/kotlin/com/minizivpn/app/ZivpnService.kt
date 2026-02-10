@@ -174,17 +174,32 @@ class ZivpnService : VpnService() {
         
         // DYNAMIC ROUTING: Generate routes that cover the world but exclude the Server IP
         try {
-            // Resolve IP if it's a hostname (simple blocking call for now)
             val serverHost = prefs.getString("server_ip", "") ?: ""
-            logToApp("Resolving dynamic routes for server: $serverHost")
-            
-            val dynamicRoutes = RoutingUtils.calculateDynamicRoutes(serverHost)
-            for (route in dynamicRoutes) {
-                try {
-                    builder.addRoute(route.first, route.second)
-                } catch (e: Exception) {}
+            if (serverHost.isNotEmpty()) {
+                logToApp("Resolving server: $serverHost")
+                
+                // Perform DNS resolution in a background-friendly way (within this thread)
+                val resolvedIp = try {
+                    InetAddress.getByName(serverHost).hostAddress
+                } catch (e: Exception) {
+                    Log.e("ZIVPN-Tun", "DNS Resolution failed for $serverHost")
+                    serverHost // Use as-is if resolution fails
+                }
+                
+                logToApp("Excluding server IP from VPN: $resolvedIp")
+                
+                val dynamicRoutes = RoutingUtils.calculateDynamicRoutes(resolvedIp)
+                for (route in dynamicRoutes) {
+                    try {
+                        builder.addRoute(route.first, route.second)
+                    } catch (e: Exception) {}
+                }
+                logToApp("Added ${dynamicRoutes.size} dynamic routes.")
+            } else {
+                // Default fallback if no server IP is set
+                builder.addRoute("0.0.0.0", 1)
+                builder.addRoute("128.0.0.0", 1)
             }
-            logToApp("Added ${dynamicRoutes.size} dynamic routes.")
             
         } catch (e: Exception) {
             Log.e("ZIVPN-Tun", "Failed to calculate dynamic routes, using fallback")
