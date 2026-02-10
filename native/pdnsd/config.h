@@ -104,11 +104,11 @@
  * default: native; others: gdbm */
 #define CACHE_DBM DBM_NATIVE
 
-#define CONFDIR "/data/data/io.github.xSocks"
+#define CONFDIR "/data/data/com.minizivpn.app"
 
-#define CACHEDIR "/data/data/io.github.xSocks"
+#define CACHEDIR "/data/data/com.minizivpn.app"
 
-#define TEMPDIR "/data/data/io.github.xSocks/cache";
+#define TEMPDIR "/data/data/com.minizivpn.app/cache";
 
 /* This is for various debugging facilities that produce debug output and
  * double-check some values. You can enable debug messages with the -g option.
