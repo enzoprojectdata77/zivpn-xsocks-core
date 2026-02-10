@@ -284,7 +284,8 @@ class ZivpnService : VpnService() {
                         "--tunmtu", finalMtu,
                         "--loglevel", tsLogLevel,
                         "--dnsgw", "169.254.1.1:$pdnsdPort", // Redirection point
-                        "--fake-proc"
+                        "--fake-proc",
+                        "--udpgw-remote-server-addr", "127.0.0.1:7300"
                     )
                     
                     // Add UDPGW support
