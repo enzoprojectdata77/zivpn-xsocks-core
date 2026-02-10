@@ -209,7 +209,7 @@ class ZivpnService : VpnService() {
 
         builder.addDnsServer("1.1.1.1")
         builder.addDnsServer("8.8.8.8")
-        builder.addAddress("172.19.0.1", 30)
+        builder.addAddress("169.254.1.1", 24)
 
         try {
             vpnInterface = builder.establish()
@@ -268,8 +268,8 @@ class ZivpnService : VpnService() {
 
                     val tunCmd = arrayListOf(
                         tun2socksBin,
-                        "--netif-ipaddr", "172.19.0.2",
-                        "--netif-netmask", "255.255.255.252",
+                        "--netif-ipaddr", "169.254.1.2",
+                        "--netif-netmask", "255.255.255.0",
                         "--socks-server-addr", "127.0.0.1:7777",
                         "--tunmtu", finalMtu,
                         "--loglevel", tsLogLevel,
