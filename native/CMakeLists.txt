@@ -124,6 +124,12 @@ add_executable(pdnsd ${PDNSD_SOURCES})
 set_target_properties(pdnsd PROPERTIES OUTPUT_NAME "pdnsd")
 set_target_properties(pdnsd PROPERTIES SUFFIX ".so")
 set_target_properties(pdnsd PROPERTIES PREFIX "lib")
-target_compile_options(pdnsd PRIVATE -Wall -O3)
+target_compile_options(pdnsd PRIVATE 
+    -Wall -O3 
+    -Wno-deprecated-declarations 
+    -Wno-unused-variable 
+    -Wno-string-plus-int
+    -Wno-gnu-designator
+)
 target_include_directories(pdnsd PRIVATE pdnsd pdnsd/src)
 target_link_libraries(pdnsd log)
