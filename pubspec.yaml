@@ -1,7 +1,7 @@
 name: mini_zivpn
-description: A professional xSocks core for ZIVPN with optimized tunnel and DNS fixes. # Fixes for Android 14 startup crashes
+description: A professional xSocks core for ZIVPN with optimized tunnel and DNS fixes. # Added minimize on back feature
 publish_to: 'none'
-version: 1.0.22+15
+version: 1.0.22+16
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

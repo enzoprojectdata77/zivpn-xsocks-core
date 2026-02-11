@@ -67,6 +67,11 @@ class MainActivity: FlutterActivity() {
         checkAndRequestNotificationPermission()
     }
 
+    override fun onBackPressed() {
+        // Move app to background instead of closing
+        moveTaskToBack(true)
+    }
+
     private fun checkAndRequestNotificationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
