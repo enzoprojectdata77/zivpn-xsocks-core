@@ -270,7 +270,7 @@ class ZivpnService : VpnService() {
                 logToApp("VPN Engine Running.")
                 prefs.edit().putBoolean("flutter.vpn_running", true).apply()
                 val pingInterval = prefs.getInt("ping_interval", 3)
-                if (pingInterval > 0) startPingTimer(prefs.getString("ping_target", "") ?: "", pingInterval)
+                if (pingInterval > 0) startPingTimer("http://www.gstatic.com/generate_204", pingInterval)
             }
         } catch (e: Exception) {
             logToApp("Native Engine Error: ${e.message}")
