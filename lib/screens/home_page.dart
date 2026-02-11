@@ -206,8 +206,11 @@ class _HomePageState extends State<HomePage> {
     final isRunning = prefs.getBool('vpn_running') ?? false;
     final startMillis = prefs.getInt('vpn_start_time');
     final currentIp = prefs.getString('ip') ?? "";
+    final savedIndex = prefs.getInt('active_account_index') ?? -1;
     
-    if (currentIp.isNotEmpty) {
+    if (savedIndex >= 0 && savedIndex < _accounts.length) {
+      _activeAccountIndex = savedIndex;
+    } else if (currentIp.isNotEmpty) {
       _activeAccountIndex = _accounts.indexWhere((acc) => acc['ip'] == currentIp);
     }
     
@@ -389,6 +392,7 @@ class _HomePageState extends State<HomePage> {
     await prefs.setString('ip', account['ip']);
     await prefs.setString('auth', account['auth']);
     await prefs.setString('obfs', account['obfs']);
+    await prefs.setInt('active_account_index', index);
 
     setState(() {
       _activeAccountIndex = index;
@@ -436,8 +440,16 @@ class _HomePageState extends State<HomePage> {
                 _saveAccounts();
               },
               onDelete: (index) {
-                setState(() => _accounts.removeAt(index));
+                setState(() {
+                  _accounts.removeAt(index);
+                  if (_activeAccountIndex == index) {
+                    _activeAccountIndex = -1;
+                  } else if (_activeAccountIndex > index) {
+                    _activeAccountIndex--;
+                  }
+                });
                 _saveAccounts();
+                SharedPreferences.getInstance().then((p) => p.setInt('active_account_index', _activeAccountIndex));
               },
             ),
             LogsTab(logs: _logs, scrollController: _logScrollCtrl),
