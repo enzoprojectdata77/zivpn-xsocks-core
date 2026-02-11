@@ -184,8 +184,8 @@ class MainActivity: FlutterActivity() {
                     val pm = packageManager
                     val packages = pm.getInstalledPackages(0)
                     for (pkg in packages) {
-                        // Skip system apps if needed, but let's include all for now
-                        val appInfo = pkg.applicationInfo
+                        // Skip if applicationInfo is null
+                        val appInfo = pkg.applicationInfo ?: continue
                         val label = pm.getApplicationLabel(appInfo).toString()
                         val packageName = pkg.packageName
                         
