@@ -591,7 +591,7 @@ int main (int argc, char **argv)
         }
 
         // init udpgw client
-        if (!SocksUdpGwClient_Init(&udpgw_client, udp_mtu, DEFAULT_UDPGW_MAX_CONNECTIONS, options.udpgw_connection_buffer_size, UDPGW_KEEPALIVE_TIME,
+        if (!SocksUdpGwClient_Init(&udpgw_client, udp_mtu, options.udpgw_max_connections, options.udpgw_connection_buffer_size, UDPGW_KEEPALIVE_TIME,
                                    socks_server_addr, socks_auth_info, socks_num_auth_info,
                                    udpgw_remote_server_addr, UDPGW_RECONNECT_TIME, &ss, NULL, udpgw_client_handler_received
         )) {
@@ -733,16 +733,10 @@ void print_help (const char *name)
         "        [--password <password>]\n"
         "        [--password-file <file>]\n"
         "        [--append-source-to-username]\n"
-#ifdef ANDROID
-        "        [--enable-udprelay]\n"
-        "        [--udprelay-max-connections <number>]\n"
-        "        [--udpgw-remote-server-addr <addr>]\n"
-#else
         "        [--udpgw-remote-server-addr <addr>]\n"
         "        [--udpgw-max-connections <number>]\n"
         "        [--udpgw-connection-buffer-size <number>]\n"
         "        [--udpgw-transparent-dns]\n"
-#endif
         "Address format is a.b.c.d:port (IPv4) or [addr]:port (IPv6).\n",
         name
     );
@@ -986,34 +980,7 @@ int parse_arguments (int argc, char *argv[])
             options.udpgw_remote_server_addr = argv[i + 1];
             i++;
         }
-#ifdef ANDROID
-        else if (!strcmp(arg, "--enable-udprelay")) {
-            if (!options.udpgw_remote_server_addr) {
-                options.udpgw_remote_server_addr = "0.0.0.0:0";
-            }
-#else
-        else if (0) { // Dummy else if to handle the removed #else block structure if needed, or just clean it up.
-                      // In the original code, the #else block contained the --udpgw-remote-server-addr logic.
-                      // Now that logic is outside.
-                      // The original structure was:
-                      // #ifdef ANDROID
-                      //    else if (enable-udprelay) { ... }
-                      // #else
-                      //    else if (udpgw-remote-server-addr) { ... }
-                      // #endif
-                      //
-                      // My new structure:
-                      // else if (udpgw-remote-server-addr) { ... }
-                      // #ifdef ANDROID
-                      //    else if (enable-udprelay) { ... }
-                      // #endif
-#endif
-        }
-#ifdef ANDROID
-        else if (!strcmp(arg, "--udprelay-max-connections")) {
-#else
         else if (!strcmp(arg, "--udpgw-max-connections")) {
-#endif
             if (1 >= argc - i) {
                 fprintf(stderr, "%s: requires an argument\n", arg);
                 return 0;
@@ -1024,7 +991,6 @@ int parse_arguments (int argc, char *argv[])
             }
             i++;
         }
-#ifndef ANDROID
         else if (!strcmp(arg, "--udpgw-connection-buffer-size")) {
             if (1 >= argc - i) {
                 fprintf(stderr, "%s: requires an argument\n", arg);
@@ -1039,7 +1005,6 @@ int parse_arguments (int argc, char *argv[])
         else if (!strcmp(arg, "--udpgw-transparent-dns")) {
             options.udpgw_transparent_dns = 1;
         }
-#endif
         else {
             fprintf(stderr, "unknown option: %s\n", arg);
             return 0;
