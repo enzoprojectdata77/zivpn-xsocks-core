@@ -1,7 +1,7 @@
 name: mini_zivpn
-description: A professional xSocks core for ZIVPN with optimized tunnel and DNS fixes. # Added minimize on back feature
+description: A professional xSocks core for ZIVPN with optimized tunnel and DNS fixes. # Enabled --udpgw-remote-server-addr for Android
 publish_to: 'none'
-version: 1.0.22+16
+version: 1.0.22+17
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

@@ -736,6 +736,7 @@ void print_help (const char *name)
 #ifdef ANDROID
         "        [--enable-udprelay]\n"
         "        [--udprelay-max-connections <number>]\n"
+        "        [--udpgw-remote-server-addr <addr>]\n"
 #else
         "        [--udpgw-remote-server-addr <addr>]\n"
         "        [--udpgw-max-connections <number>]\n"
@@ -977,10 +978,6 @@ int parse_arguments (int argc, char *argv[])
         else if (!strcmp(arg, "--append-source-to-username")) {
             options.append_source_to_username = 1;
         }
-#ifdef ANDROID
-        else if (!strcmp(arg, "--enable-udprelay")) {
-            options.udpgw_remote_server_addr = "0.0.0.0:0";
-#else
         else if (!strcmp(arg, "--udpgw-remote-server-addr")) {
             if (1 >= argc - i) {
                 fprintf(stderr, "%s: requires an argument\n", arg);
@@ -988,6 +985,28 @@ int parse_arguments (int argc, char *argv[])
             }
             options.udpgw_remote_server_addr = argv[i + 1];
             i++;
+        }
+#ifdef ANDROID
+        else if (!strcmp(arg, "--enable-udprelay")) {
+            if (!options.udpgw_remote_server_addr) {
+                options.udpgw_remote_server_addr = "0.0.0.0:0";
+            }
+#else
+        else if (0) { // Dummy else if to handle the removed #else block structure if needed, or just clean it up.
+                      // In the original code, the #else block contained the --udpgw-remote-server-addr logic.
+                      // Now that logic is outside.
+                      // The original structure was:
+                      // #ifdef ANDROID
+                      //    else if (enable-udprelay) { ... }
+                      // #else
+                      //    else if (udpgw-remote-server-addr) { ... }
+                      // #endif
+                      //
+                      // My new structure:
+                      // else if (udpgw-remote-server-addr) { ... }
+                      // #ifdef ANDROID
+                      //    else if (enable-udprelay) { ... }
+                      // #endif
 #endif
         }
 #ifdef ANDROID

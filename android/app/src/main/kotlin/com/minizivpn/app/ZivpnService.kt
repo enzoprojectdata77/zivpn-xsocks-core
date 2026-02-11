@@ -254,9 +254,13 @@ class ZivpnService : VpnService() {
             )
             
             if (useUdpgw) {
+                // Gunakan argumen --udpgw-remote-server-addr untuk mode standard
+                // dan --enable-udprelay untuk mode relay (jika masih diinginkan)
                 if (udpgwMode == "standard") {
                     tunCmd.add("--udpgw-remote-server-addr"); tunCmd.add("127.0.0.1:$udpgwPort")
-                } else { tunCmd.add("--enable-udprelay") }
+                } else { // Ini akan mencakup mode "relay" atau mode lain yang tidak "standard"
+                    tunCmd.add("--enable-udprelay")
+                }
                 tunCmd.add("--udprelay-max-connections"); tunCmd.add("512")
             }
 
