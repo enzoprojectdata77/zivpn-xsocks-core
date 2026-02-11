@@ -4,7 +4,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../models/app_version.dart';
 
 class UpdateRepository {
-  final String apiUrl = "https://api.github.com/repos/mlacnout-sketch/stabil/releases";
+  final String apiUrl = "https://api.github.com/repos/mlacnout-sketch/zivpn-xsocks-core/releases";
 
   Future<AppVersion?> fetchUpdate() async {
     // Strategy: Try Proxies First (Tunnel), then Direct
