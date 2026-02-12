@@ -255,6 +255,14 @@ class ZivpnService : VpnService() {
                 "--socks-server-addr", "127.0.0.1:7777", "--tunmtu", mtu.toString(),
                 "--loglevel", tsLogLevel, "--dnsgw", "169.254.1.1:$pdnsdPort", "--fake-proc"
             )
+
+            val tcpSndBuf = prefs.getString("tcp_snd_buf", "65535") ?: "65535"
+            val tcpWnd = prefs.getString("tcp_wnd", "65535") ?: "65535"
+            val socksBuf = prefs.getString("socks_buf", "65536") ?: "65536"
+
+            tunCmd.add("--tcp-snd-buf"); tunCmd.add(tcpSndBuf)
+            tunCmd.add("--tcp-wnd"); tunCmd.add(tcpWnd)
+            tunCmd.add("--socks-buf"); tunCmd.add(socksBuf)
             
             if (useUdpgw) {
                 // Enforce standard UDPGW mode for all configurations

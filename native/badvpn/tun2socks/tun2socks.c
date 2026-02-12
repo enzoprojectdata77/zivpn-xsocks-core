@@ -70,6 +70,10 @@
 
 #include <generated/blog_channel_tun2socks.h>
 
+extern u16_t g_tcp_wnd;
+extern u16_t g_tcp_snd_buf;
+int g_socks_buf_size = CLIENT_SOCKS_RECV_BUF_SIZE;
+
 #ifdef ANDROID
 
 #include <ancillary.h>
@@ -193,6 +197,9 @@ struct {
     int udpgw_max_connections;
     int udpgw_connection_buffer_size;
     int udpgw_transparent_dns;
+    int tcp_snd_buf;
+    int tcp_wnd;
+    int socks_buf;
 #ifdef ANDROID
     int tun_fd;
     int tun_mtu;
@@ -213,7 +220,7 @@ struct tcp_client {
     BAddr remote_addr;
     struct tcp_pcb *pcb;
     int client_closed;
-    uint8_t buf[TCP_WND];
+    uint8_t *buf;
     int buf_used;
     char *socks_username;
     BSocksClient socks_client;
@@ -221,7 +228,7 @@ struct tcp_client {
     int socks_closed;
     StreamPassInterface *socks_send_if;
     StreamRecvInterface *socks_recv_if;
-    uint8_t socks_recv_buf[CLIENT_SOCKS_RECV_BUF_SIZE];
+    uint8_t *socks_recv_buf;
     int socks_recv_buf_used;
     int socks_recv_buf_sent;
     int socks_recv_waiting;
@@ -784,6 +791,9 @@ int parse_arguments (int argc, char *argv[])
     options.udpgw_max_connections = DEFAULT_UDPGW_MAX_CONNECTIONS;
     options.udpgw_connection_buffer_size = DEFAULT_UDPGW_CONNECTION_BUFFER_SIZE;
     options.udpgw_transparent_dns = 0;
+    options.tcp_snd_buf = 0;
+    options.tcp_wnd = 0;
+    options.socks_buf = 0;
 
     int i;
     for (i = 1; i < argc; i++) {
@@ -1005,6 +1015,39 @@ int parse_arguments (int argc, char *argv[])
         else if (!strcmp(arg, "--udpgw-transparent-dns")) {
             options.udpgw_transparent_dns = 1;
         }
+        else if (!strcmp(arg, "--tcp-snd-buf")) {
+            if (1 >= argc - i) {
+                fprintf(stderr, "%s: requires an argument\n", arg);
+                return 0;
+            }
+            if ((options.tcp_snd_buf = atoi(argv[i + 1])) <= 0) {
+                fprintf(stderr, "%s: wrong argument\n", arg);
+                return 0;
+            }
+            i++;
+        }
+        else if (!strcmp(arg, "--tcp-wnd")) {
+            if (1 >= argc - i) {
+                fprintf(stderr, "%s: requires an argument\n", arg);
+                return 0;
+            }
+            if ((options.tcp_wnd = atoi(argv[i + 1])) <= 0) {
+                fprintf(stderr, "%s: wrong argument\n", arg);
+                return 0;
+            }
+            i++;
+        }
+        else if (!strcmp(arg, "--socks-buf")) {
+            if (1 >= argc - i) {
+                fprintf(stderr, "%s: requires an argument\n", arg);
+                return 0;
+            }
+            if ((options.socks_buf = atoi(argv[i + 1])) <= 0) {
+                fprintf(stderr, "%s: wrong argument\n", arg);
+                return 0;
+            }
+            i++;
+        }
         else {
             fprintf(stderr, "unknown option: %s\n", arg);
             return 0;
@@ -1133,6 +1176,18 @@ int process_arguments (void)
         }
     }
 #endif
+
+    if (options.tcp_snd_buf) {
+        if (options.tcp_snd_buf > 65535) options.tcp_snd_buf = 65535;
+        g_tcp_snd_buf = (u16_t)options.tcp_snd_buf;
+    }
+    if (options.tcp_wnd) {
+        if (options.tcp_wnd > 65535) options.tcp_wnd = 65535;
+        g_tcp_wnd = (u16_t)options.tcp_wnd;
+    }
+    if (options.socks_buf) {
+        g_socks_buf_size = options.socks_buf;
+    }
 
     return 1;
 }
@@ -1819,6 +1874,19 @@ err_t listener_accept_func (void *arg, struct tcp_pcb *newpcb, err_t err)
         BLog(BLOG_ERROR, "listener accept: malloc failed");
         goto fail0;
     }
+    client->buf = (uint8_t *)malloc(g_tcp_wnd);
+    if (!client->buf) {
+        BLog(BLOG_ERROR, "listener accept: malloc failed (buf)");
+        free(client);
+        goto fail0;
+    }
+    client->socks_recv_buf = (uint8_t *)malloc(g_socks_buf_size);
+    if (!client->socks_recv_buf) {
+        BLog(BLOG_ERROR, "listener accept: malloc failed (socks_recv_buf)");
+        free(client->buf);
+        free(client);
+        goto fail0;
+    }
     client->socks_username = NULL;
 
     SYNC_DECL
@@ -1901,6 +1969,8 @@ err_t listener_accept_func (void *arg, struct tcp_pcb *newpcb, err_t err)
 fail1:
     SYNC_BREAK
     free(client->socks_username);
+    free(client->buf);
+    free(client->socks_recv_buf);
     free(client);
 fail0:
     return ERR_MEM;
@@ -2043,6 +2113,8 @@ void client_dealloc (struct tcp_client *client)
 
     // free memory
     free(client->socks_username);
+    free(client->buf);
+    free(client->socks_recv_buf);
     free(client);
 }
 
@@ -2073,7 +2145,7 @@ err_t client_recv_func (void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t e
     ASSERT(p->tot_len > 0)
 
     // check if we have enough buffer
-    if (p->tot_len > sizeof(client->buf) - client->buf_used) {
+    if (p->tot_len > g_tcp_wnd - client->buf_used) {
         client_log(client, BLOG_ERROR, "no buffer for data !?!");
         return ERR_MEM;
     }
@@ -2205,13 +2277,13 @@ void client_socks_recv_initiate (struct tcp_client *client)
     ASSERT(client->socks_up)
     ASSERT(client->socks_recv_buf_used == -1)
 
-    StreamRecvInterface_Receiver_Recv(client->socks_recv_if, client->socks_recv_buf, sizeof(client->socks_recv_buf));
+    StreamRecvInterface_Receiver_Recv(client->socks_recv_if, client->socks_recv_buf, g_socks_buf_size);
 }
 
 void client_socks_recv_handler_done (struct tcp_client *client, int data_len)
 {
     ASSERT(data_len > 0)
-    ASSERT(data_len <= sizeof(client->socks_recv_buf))
+    ASSERT(data_len <= g_socks_buf_size)
     ASSERT(!client->socks_closed)
     ASSERT(client->socks_up)
     ASSERT(client->socks_recv_buf_used == -1)

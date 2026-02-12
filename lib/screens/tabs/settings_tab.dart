@@ -29,6 +29,9 @@ class _SettingsTabState extends State<SettingsTab> {
   final _udpgwPortCtrl = TextEditingController();
   final _dnsCtrl = TextEditingController();
   final _appsListCtrl = TextEditingController();
+  final _tcpSndBufCtrl = TextEditingController();
+  final _tcpWndCtrl = TextEditingController();
+  final _socksBufCtrl = TextEditingController();
 
   bool _cpuWakelock = false;
   bool _enableUdpgw = true;
@@ -122,6 +125,9 @@ class _SettingsTabState extends State<SettingsTab> {
       _udpgwPortCtrl.text = prefs.getString('udpgw_port') ?? "7300";
       _dnsCtrl.text = prefs.getString('upstream_dns') ?? "208.67.222.222";
       _appsListCtrl.text = prefs.getString('apps_list') ?? "";
+      _tcpSndBufCtrl.text = prefs.getString('tcp_snd_buf') ?? "65535";
+      _tcpWndCtrl.text = prefs.getString('tcp_wnd') ?? "65535";
+      _socksBufCtrl.text = prefs.getString('socks_buf') ?? "65536";
       _cpuWakelock = prefs.getBool('cpu_wakelock') ?? false;
       _enableUdpgw = prefs.getBool('enable_udpgw') ?? true;
       _filterApps = prefs.getBool('filter_apps') ?? false;
@@ -139,6 +145,9 @@ class _SettingsTabState extends State<SettingsTab> {
     await prefs.setString('udpgw_port', _udpgwPortCtrl.text);
     await prefs.setString('upstream_dns', _dnsCtrl.text);
     await prefs.setString('apps_list', _appsListCtrl.text);
+    await prefs.setString('tcp_snd_buf', _tcpSndBufCtrl.text);
+    await prefs.setString('tcp_wnd', _tcpWndCtrl.text);
+    await prefs.setString('socks_buf', _socksBufCtrl.text);
     await prefs.setBool('cpu_wakelock', _cpuWakelock);
     await prefs.setBool('enable_udpgw', _enableUdpgw);
     await prefs.setBool('filter_apps', _filterApps);
@@ -258,6 +267,31 @@ class _SettingsTabState extends State<SettingsTab> {
                   subtitle: const Text("Prevent CPU sleep (High Battery Usage)"),
                   value: _cpuWakelock,
                   onChanged: (val) => setState(() => _cpuWakelock = val),
+                ),
+                const Divider(),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: _buildTextInput(
+                    _tcpSndBufCtrl,
+                    "TCP Send Buffer (Default: 65535)",
+                    Icons.upload_file,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: _buildTextInput(
+                    _tcpWndCtrl,
+                    "TCP Window Size (Default: 65535)",
+                    Icons.download_for_offline,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: _buildTextInput(
+                    _socksBufCtrl,
+                    "SOCKS Buffer Size (Default: 65536)",
+                    Icons.memory,
+                  ),
                 ),
                 const Divider(),
                 Padding(
