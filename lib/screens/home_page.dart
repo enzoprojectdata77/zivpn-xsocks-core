@@ -339,9 +339,9 @@ class _HomePageState extends State<HomePage> {
 
       final bool useWakelock = prefs.getBool('cpu_wakelock') ?? false;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Connecting... (Wakelock: $useWakelock)"),
-          duration: const Duration(seconds: 1),
+        const SnackBar(
+          content: Text("Connecting..."),
+          duration: Duration(seconds: 1),
           backgroundColor: AppColors.primary,
         ),
       );
