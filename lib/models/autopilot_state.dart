@@ -2,7 +2,7 @@ enum AutoPilotStatus {
   stopped,
   monitoring,
   checking,
-  recovering,
+  resetting,
   stabilizing,
   error,
 }

@@ -65,7 +65,7 @@ class _AutoPilotTabState extends State<AutoPilotTab> {
       case AutoPilotStatus.stopped: color = Colors.grey; icon = Icons.stop_circle_outlined; label = "STOPPED"; break;
       case AutoPilotStatus.monitoring: color = Colors.green; icon = Icons.radar; label = "MONITORING"; break;
       case AutoPilotStatus.checking: color = Colors.blue; icon = Icons.sync; label = "CHECKING..."; break;
-      case AutoPilotStatus.recovering: color = Colors.orange; icon = Icons.airplane_ticket; label = "RESETTING NET"; break;
+      case AutoPilotStatus.resetting: color = Colors.orange; icon = Icons.airplane_ticket; label = "RESETTING NET"; break;
       case AutoPilotStatus.stabilizing: color = Colors.purple; icon = Icons.bolt; label = "STABILIZING"; break;
       case AutoPilotStatus.error: color = Colors.red; icon = Icons.error_outline; label = "ERROR"; break;
     }
@@ -175,7 +175,7 @@ class _AutoPilotTabState extends State<AutoPilotTab> {
               title: const Text("Ping Stabilizer", style: TextStyle(fontWeight: FontWeight.bold)),
               subtitle: const Text("Downloads data to wake up connection"),
               value: cfg.enableStabilizer,
-              activeColor: AppColors.primary,
+              activeThumbColor: AppColors.primary,
               onChanged: (v) => _updateCfg(cfg.copyWith(enableStabilizer: v)),
             ),
             if (cfg.enableStabilizer)
