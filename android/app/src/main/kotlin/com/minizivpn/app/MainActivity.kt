@@ -149,7 +149,6 @@ class MainActivity: FlutterActivity() {
                 val range = call.argument<String>("port_range") ?: "6000-19999"
                 val pass = call.argument<String>("pass") ?: ""
                 val obfs = call.argument<String>("obfs") ?: "hu``hqb`c"
-                val multiplier = call.argument<Double>("recv_window_multiplier") ?: 1.0
                 val udpMode = call.argument<String>("udp_mode") ?: "tcp"
                 
                 // UDPGW Settings
@@ -182,7 +181,6 @@ class MainActivity: FlutterActivity() {
                     .putString("flutter.server_range", range)
                     .putString("flutter.server_pass", pass)
                     .putString("flutter.server_obfs", obfs)
-                    .putFloat("flutter.multiplier", multiplier.toFloat())
                     .putString("flutter.udp_mode", udpMode)
                     .putBoolean("flutter.enable_udpgw", enableUdpgw)
                     .putString("flutter.udpgw_port", udpgwPort)
