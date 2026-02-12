@@ -81,7 +81,7 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: false # DISABLED TEMPORARILY: github.ref == 'refs/heads/main'
     permissions:
       contents: write
     steps:
