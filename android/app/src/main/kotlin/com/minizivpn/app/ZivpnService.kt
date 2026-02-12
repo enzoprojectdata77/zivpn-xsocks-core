@@ -14,6 +14,8 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import android.content.pm.ServiceInfo
 import java.net.InetAddress
+import java.net.Proxy
+import java.net.InetSocketAddress
 import java.util.LinkedList
 import androidx.annotation.Keep
 import java.io.File
@@ -43,6 +45,7 @@ class ZivpnService : VpnService() {
         const val ACTION_LOG = "com.minizivpn.app.LOG"
         const val CHANNEL_ID = "ZIVPN_SERVICE_CHANNEL"
         const val NOTIFICATION_ID = 1
+        const val LOCAL_SOCKS_PORT = 7777
     }
 
     private var vpnInterface: ParcelFileDescriptor? = null
@@ -437,27 +440,53 @@ class ZivpnService : VpnService() {
 
     private fun startPingTimer(target: String, intervalSeconds: Int) {
         stopPingTimer()
+        consecutiveFailures = 0
+        sessionResetCount = 0
         pingExecutor = Executors.newSingleThreadScheduledExecutor()
+        
+        val prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
+        val maxFail = getPrefInt(prefs, "max_fail_count", 3)
+        val autoReset = getPrefBool(prefs, "auto_reset", false)
+        val pingTimeout = getPrefInt(prefs, "ping_timeout", 5)
         
         pingExecutor?.scheduleAtFixedRate({
             val start = System.currentTimeMillis()
             try {
                 val url = java.net.URL(target)
-                val conn = url.openConnection() as java.net.HttpURLConnection
-                conn.connectTimeout = 5000
-                conn.readTimeout = 5000
-                conn.requestMethod = "GET"
+                val proxy = Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", LOCAL_SOCKS_PORT))
+                val conn = url.openConnection(proxy) as java.net.HttpURLConnection
+                
+                conn.connectTimeout = pingTimeout * 1000
+                conn.readTimeout = pingTimeout * 1000
+                conn.requestMethod = "HEAD"
+                
                 val responseCode = conn.responseCode
                 val duration = System.currentTimeMillis() - start
                 
-                // Log to standard log stream with [PING] tag
-                logToApp("[PING] $target: $responseCode (${duration}ms)")
+                if (responseCode == 200 || responseCode == 204) {
+                    consecutiveFailures = 0
+                    sessionResetCount = 0
+                    logToApp("[PING] $target: $responseCode (${duration}ms)")
+                } else {
+                    throw Exception("HTTP $responseCode")
+                }
             } catch (e: Exception) {
-                logToApp("[PING] Failed: ${e.message}")
+                consecutiveFailures++
+                logToApp("[PING] Failed: ${e.message} ($consecutiveFailures/$maxFail)")
+                
+                if (autoReset && consecutiveFailures >= maxFail) {
+                    if (sessionResetCount < 5) {
+                        logToApp("[CONNECTION_LOST] Max failures reached. Triggering Auto Reset (#${sessionResetCount + 1})...")
+                        sessionResetCount++
+                    } else {
+                        logToApp("[AutoPilot] ⛔ Gave up after 5 resets. Internet seems permanently dead.")
+                    }
+                    consecutiveFailures = 0
+                }
             }
         }, 0, intervalSeconds.toLong(), TimeUnit.SECONDS)
         
-        logToApp("Auto-Ping started every $intervalSeconds seconds to $target")
+        logToApp("Auto-Ping started every $intervalSeconds seconds (Timeout: ${pingTimeout}s)")
     }
 
     private fun stopPingTimer() {
