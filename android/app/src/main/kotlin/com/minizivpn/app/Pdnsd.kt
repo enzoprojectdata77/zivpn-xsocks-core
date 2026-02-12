@@ -21,9 +21,9 @@ object Pdnsd {
         
         val conf = """
             global {
-                perm_cache=2048;
+                perm_cache=4096;
                 cache_dir="${cacheDir.absolutePath}";
-                server_ip = 0.0.0.0;
+                server_ip = 169.254.1.1;
                 server_port = $listenPort;
                 status_ctl = on;
                 query_method=udp_tcp; 
@@ -31,7 +31,8 @@ object Pdnsd {
                 max_ttl=1w;
                 timeout=10;
                 daemon=off;
-                verbosity=2;
+                verbosity=5;
+                par_queries=2;
             }
 
             server {
@@ -40,6 +41,7 @@ object Pdnsd {
                 port = $port;
                 uptest = none;
                 proxy_only=on;
+                purge_cache=off;
             }
 
             rr {
