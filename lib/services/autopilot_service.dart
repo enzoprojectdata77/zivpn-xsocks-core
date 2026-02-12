@@ -100,9 +100,10 @@ class AutoPilotService {
         message: 'Watchdog active (Listening to Core)',
       ));
 
-      // Listen to Native Logs for [CONNECTION_LOST]
-      _logSubscription = _logChannel.receiveBroadcastStream().listen(_onLogReceived);
-
+      _timer = Timer.periodic(
+        Duration(seconds: _config.checkIntervalSeconds),
+        (timer) async => await _checkAndRecover(),
+      );
     } catch (e) {
       _updateState(_currentState.copyWith(
         status: AutoPilotStatus.error,
@@ -113,6 +114,8 @@ class AutoPilotService {
   }
 
   void stop() {
+    _timer?.cancel();
+    _timer = null;
     _logSubscription?.cancel();
     _logSubscription = null;
     _updateState(_currentState.copyWith(
@@ -123,32 +126,56 @@ class AutoPilotService {
   }
 
   void _onLogReceived(dynamic event) {
-    if (event is String) {
-        if (event.contains("[PING] Failed")) {
-             // Extract fail count if possible or just increment local visual counter
-             final newFail = _currentState.failCount + 1;
-             _updateState(_currentState.copyWith(
-                failCount: newFail,
-                hasInternet: false,
-                message: "Ping Failed (Core detected issue)",
-                lastCheck: DateTime.now()
-             ));
-        } else if (event.contains("[PING] http")) {
-             _updateState(_currentState.copyWith(
-                failCount: 0,
-                hasInternet: true,
-                message: "Connection Stable",
-                lastCheck: DateTime.now()
-             ));
-        } else if (event.contains("[CONNECTION_LOST]")) {
-             if (!_isResetting) {
-                 _performReset();
-             }
+    // Native logs listener (Optional: can be used for double validation)
+  }
+
+  Future<void> _checkAndRecover() async {
+    if (!isRunning || _isChecking || _isResetting) return;
+    _isChecking = true;
+
+    try {
+      _updateState(_currentState.copyWith(
+        status: AutoPilotStatus.monitoring,
+        lastCheck: DateTime.now(),
+      ));
+
+      final hasInternet = await checkInternet();
+
+      if (hasInternet) {
+        _updateState(_currentState.copyWith(
+          failCount: 0,
+          hasInternet: true,
+          message: 'Connection stable',
+        ));
+      } else {
+        final newFailCount = _currentState.failCount + 1;
+        _updateState(_currentState.copyWith(
+          failCount: newFailCount,
+          hasInternet: false,
+          message: 'Ping Failed ($newFailCount/${_config.maxFailCount})',
+        ));
+
+        if (newFailCount >= _config.maxFailCount) {
+          await _performReset();
         }
+      }
+    } catch (e) {
+      _log('Check failed: $e');
+    } finally {
+      _isChecking = false;
     }
   }
 
-  // Remove old timer-based checkAndRecover logic
+  Future<bool> checkInternet() async {
+    try {
+      final response = await _httpClient
+          .head(Uri.parse('http://connectivitycheck.gstatic.com/generate_204'))
+          .timeout(Duration(seconds: _config.connectionTimeoutSeconds));
+      return response.statusCode == 204 || response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
   // ... rest of the file ...
 
   Future<void> strengthenBackground() async {
