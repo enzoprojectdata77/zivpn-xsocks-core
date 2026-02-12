@@ -52,6 +52,10 @@ class ZivpnService : VpnService() {
     private val processes = mutableListOf<Process>()
     private var wakeLock: PowerManager.WakeLock? = null
     private var pingExecutor: ScheduledExecutorService? = null
+    
+    // Class-level properties to be accessible within inner classes/lambdas
+    private var consecutiveFailures = 0
+    private var sessionResetCount = 0
 
     private fun logToApp(msg: String) {
         val intent = Intent(ACTION_LOG)
