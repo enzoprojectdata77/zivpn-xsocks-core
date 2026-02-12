@@ -168,27 +168,38 @@ class MainActivity: FlutterActivity() {
                 val logLevel = call.argument<String>("log_level") ?: "info"
                 val coreCount = call.argument<Int>("core_count") ?: 4
                 val cpuWakelock = call.argument<Boolean>("cpu_wakelock") ?: false
+                
+                val tcpSndBuf = call.argument<String>("tcp_snd_buf") ?: "65535"
+                val tcpWnd = call.argument<String>("tcp_wnd") ?: "65535"
+                val socksBuf = call.argument<String>("socks_buf") ?: "65536"
+                val udpgwMaxConn = call.argument<String>("udpgw_max_connections") ?: "512"
+                val udpgwBufSize = call.argument<String>("udpgw_buffer_size") ?: "32"
 
                 // Save Config for ZivpnService
                 getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
                     .edit()
-                    .putString("server_ip", ip)
-                    .putString("server_range", range)
-                    .putString("server_pass", pass)
-                    .putString("server_obfs", obfs)
-                    .putFloat("multiplier", multiplier.toFloat())
-                    .putString("udp_mode", udpMode)
-                    .putBoolean("enable_udpgw", enableUdpgw)
-                    .putString("udpgw_port", udpgwPort)
-                    .putInt("ping_interval", pingInterval)
-                    .putString("ping_target", pingTarget)
-                    .putBoolean("filter_apps", filterApps)
-                    .putBoolean("bypass_mode", bypassMode)
-                    .putString("apps_list", appsList)
-                    .putInt("mtu", mtu)
-                    .putString("log_level", logLevel)
-                    .putInt("core_count", coreCount)
-                    .putBoolean("cpu_wakelock", cpuWakelock)
+                    .putString("flutter.server_ip", ip)
+                    .putString("flutter.server_range", range)
+                    .putString("flutter.server_pass", pass)
+                    .putString("flutter.server_obfs", obfs)
+                    .putFloat("flutter.multiplier", multiplier.toFloat())
+                    .putString("flutter.udp_mode", udpMode)
+                    .putBoolean("flutter.enable_udpgw", enableUdpgw)
+                    .putString("flutter.udpgw_port", udpgwPort)
+                    .putString("flutter.udpgw_max_connections", udpgwMaxConn)
+                    .putString("flutter.udpgw_buffer_size", udpgwBufSize)
+                    .putInt("flutter.ping_interval", pingInterval)
+                    .putString("flutter.ping_target", pingTarget)
+                    .putBoolean("flutter.filter_apps", filterApps)
+                    .putBoolean("flutter.bypass_mode", bypassMode)
+                    .putString("flutter.apps_list", appsList)
+                    .putInt("flutter.mtu", mtu)
+                    .putString("flutter.tcp_snd_buf", tcpSndBuf)
+                    .putString("flutter.tcp_wnd", tcpWnd)
+                    .putString("flutter.socks_buf", socksBuf)
+                    .putString("flutter.log_level", logLevel)
+                    .putInt("flutter.core_count", coreCount)
+                    .putBoolean("flutter.cpu_wakelock", cpuWakelock)
                     .apply()
 
                 sendToLog("Config saved. Ready to start VPN.")
