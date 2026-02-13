@@ -122,13 +122,13 @@ class UpdateRepository {
       final List releases = json.decode(jsonStr);
       final packageInfo = await PackageInfo.fromPlatform();
       final currentVersion = packageInfo.version;
-      // Build number ignored to prevent loop (Local 2 vs Remote CI RunNumber)
+      final currentBuildNumber = packageInfo.buildNumber;
       
-      print("Current App: $currentVersion");
+      print("Current App: $currentVersion ($currentBuildNumber)");
       
       for (var release in releases) {
         final tagName = release['tag_name'].toString();
-        if (_isNewer(tagName, currentVersion)) {
+        if (_isNewer(tagName, currentVersion, currentBuildNumber)) {
           final assets = release['assets'] as List?;
           if (assets == null) continue;
 
@@ -150,8 +150,9 @@ class UpdateRepository {
       return null;
   }
 
-  bool _isNewer(String latestTag, String currentVersion) {
+  bool _isNewer(String latestTag, String currentVersion, String currentBuildNumber) {
     try {
+      // Parse Major.Minor.Patch
       final RegExp regVer = RegExp(r'(\d+)\.(\d+)\.(\d+)');
       final match1 = regVer.firstMatch(latestTag);
       final match2 = regVer.firstMatch(currentVersion);
@@ -175,11 +176,22 @@ class UpdateRepository {
         if (v1[i] < v2[i]) return false;
       }
       
-      // Build number comparison removed to strictly follow Semantic Versioning
-      // and avoid issues where CI Run Number (Remote) > Pubspec Build Number (Local)
-      
-      return false;
+      // If versions are equal, check Build Number
+      int buildRemote = 0;
+      int buildLocal = int.tryParse(currentBuildNumber) ?? 0;
+
+      // Extract Remote Build Number (-bXX)
+      final RegExp regBuildRemote = RegExp(r'-b(\d+)');
+      final matchBuildRemote = regBuildRemote.firstMatch(latestTag);
+      if (matchBuildRemote != null) {
+        buildRemote = int.parse(matchBuildRemote.group(1)!);
+      }
+
+      print("Ver Check: Remote=$v1 ($buildRemote) vs Local=$v2 ($buildLocal)");
+
+      return buildRemote > buildLocal;
     } catch (e) {
+      print("Version check error: $e");
       return false;
     }
   }
