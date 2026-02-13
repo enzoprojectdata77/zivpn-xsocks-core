@@ -1,17 +1,14 @@
-name: ZIVPN Release Publish
+name: ZIVPN xSocks Core Build
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [ "**" ]
   workflow_dispatch:
 
 jobs:
-  build-and-release:
-    name: Build & Publish Release
+  build:
+    name: Compile Native & Build Release APK
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     
     steps:
       - name: Checkout Code
@@ -19,31 +16,40 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Setup Java
+      - name: Setup Java Environment
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
           cache: 'gradle'
 
-      - name: Setup Android SDK
+      - name: Setup Android Environment
         uses: android-actions/setup-android@v3
 
       - name: Install NDK & CMake
         run: |
           yes | sdkmanager --licenses
           sdkmanager "ndk;27.0.12077973" "cmake;3.18.1"
-
+      - name: Native Code Sanity Check (Fail Fast)
+        run: |
+          # Manually trigger CMake build to catch C/C++ errors early
+          mkdir -p native/build
+          cd native/build
+          cmake .. -DCMAKE_TOOLCHAIN_FILE=$ANDROID_HOME/ndk/27.0.12077973/build/cmake/android.toolchain.cmake -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-24 -DCMAKE_BUILD_TYPE=Release -DSKIP_JNI_CHECK=ON
+          make -j$(nproc)
+          echo "Native compilation successful!"
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
           cache: true
 
-      - name: Get Dependencies
+      - name: Clean & Get Flutter Dependencies
         run: |
           flutter clean
           flutter pub get
+      - name: Flutter Analyze (Best Practice Check)
+        run: flutter analyze
 
       - name: Decode Signing Keystore
         env:
@@ -52,19 +58,35 @@ jobs:
           if [ ! -z "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 --decode > android/app/release.jks
             echo "Keystore decoded successfully."
-          else
-            echo "Release keystore secret is empty. Generating fallback debug keystore..."
-            keytool -genkey -v -keystore android/app/release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias androiddebugkey -storepass android -keypass android -dname "CN=Android Debug,O=Android,C=US"
           fi
-
       - name: Build Release APK
         env:
-          KEYSTORE_PATH: ${{ github.workspace }}/android/app/release.jks
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'androiddebugkey' }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'android' }}
-          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD || 'android' }}
+          KEYSTORE_PATH: release.jks
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
         run: |
           flutter build apk --release --target-platform android-arm64
+      - name: Upload Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZIVPN-xSocks-Core-Release
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ZIVPN-xSocks-Core-Release
 
       - name: Create Release Tag
         id: tag_version
@@ -74,18 +96,15 @@ jobs:
           TAG="v$VERSION-b${{ github.run_number }}"
           echo "VERSION=$TAG" >> $GITHUB_ENV
           echo "Generated version: $TAG"
-
-      - name: Create GitHub Release
+      - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ env.VERSION }}
           name: ZIVPN xSocks Core ${{ env.VERSION }}
           body: |
-            **Automated Release**
-            - Base Version: ${{ env.VERSION }}
-            - Build ID: ${{ github.run_id }}
-            - Built with: Flutter Stable & NDK 27
-          files: build/app/outputs/flutter-apk/app-release.apk
+            Automatic build for xSocks Core.
+            Run ID: ${{ github.run_id }}
+          files: app-release.apk
           draft: false
           prerelease: false
         env:
