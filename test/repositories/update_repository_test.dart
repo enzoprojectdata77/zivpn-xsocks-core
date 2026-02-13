@@ -2,17 +2,14 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:path_provider/path_provider.dart'; // Just in case, though Repo uses File
 // Import the repository. Assuming package structure.
 // Since I'm in test/repositories, I need to import correctly.
 // I don't know the package name from here, but relative imports work in tests if aligned.
 // Or I can use 'package:app_name/...' if I knew the app name.
 // I'll try relative import.
 import '../../lib/repositories/update_repository.dart';
-import '../../lib/models/app_version.dart';
 
 // --- Mocks ---
 

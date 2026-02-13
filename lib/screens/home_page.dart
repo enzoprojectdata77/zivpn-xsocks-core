@@ -95,9 +95,7 @@ class _HomePageState extends State<HomePage> {
           _autoPilotResetting = state.status == AutoPilotStatus.resetting || 
                                state.status == AutoPilotStatus.stabilizing;
           
-          // Log AutoPilot messages to main log
           if (state.message != null && !state.message!.contains("Monitoring")) {
-             // Only important messages
              if (!_logs.contains("[AUTOPILOT] ${state.message}")) {
                 _logs.add("[AUTOPILOT] ${state.message}");
              }
@@ -272,7 +270,6 @@ class _HomePageState extends State<HomePage> {
     await prefs.reload();
 
     if (_vpnState == "connected") {
-      // --- LOGIKA DISCONNECT DENGAN SARCASTIC DIALOG ---
       void performStop() async {
         try {
           await platform.invokeMethod('stopCore');
@@ -293,18 +290,15 @@ class _HomePageState extends State<HomePage> {
       }
 
       if (mounted) {
-        // RNG Check inside showSarcasticDialog
         bool shown = showSarcasticDialog(context, onProceed: performStop);
-        if (!shown) {
-            performStop();
-        }
+        if (!shown) performStop();
       } else {
         performStop();
       }
 
     } else {
       final ip = prefs.getString('ip') ?? "";
-      if (ip.isEmpty) { setState(() => _selectedIndex = 4); return; } // Settings index is now 4
+      if (ip.isEmpty) { setState(() => _selectedIndex = 4); return; }
 
       setState(() => _vpnState = "connecting");
 
