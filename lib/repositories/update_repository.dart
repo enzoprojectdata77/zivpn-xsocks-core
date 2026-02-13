@@ -6,27 +6,48 @@ import '../models/app_version.dart';
 class UpdateRepository {
   final String apiUrl = "https://api.github.com/repos/mlacnout-sketch/zivpn-xsocks-core/releases";
 
-  Future<AppVersion?> fetchUpdate() async {
-    // Strategy: Try SOCKS5 first (via active VPN tunnel), then DIRECT (handled by OS)
-    final strategies = [
-      "SOCKS5 127.0.0.1:7777",
-      "DIRECT"
-    ];
+  // Strategies for connection: SOCKS (via VPN tunnel), then DIRECT (fallback)
+  // Note: Dart's findProxy expects 'SOCKS host:port', not 'SOCKS5'.
+  static const List<String> _strategies = [
+    "SOCKS 127.0.0.1:7777",
+    "DIRECT"
+  ];
 
-    for (final proxy in strategies) {
+  Future<AppVersion?> fetchUpdate() async {
+    for (final proxy in _strategies) {
       try {
         print("Checking update via: $proxy");
-        final responseBody = await _executeRequest(proxy);
+        final responseBody = await _executeCheck(proxy);
         return await _processResponse(responseBody);
       } catch (e) {
         print("Update check failed via $proxy: $e");
       }
     }
-    print("All update strategies failed.");
+    print("All update check strategies failed.");
     return null;
   }
 
-  Future<String> _executeRequest(String proxyConf) async {
+  Future<File?> downloadUpdate(AppVersion version, File targetFile, Function(double) onProgress) async {
+    for (final proxy in _strategies) {
+      try {
+        print("Downloading update via: $proxy");
+        await _executeDownload(version.apkUrl, targetFile, proxy, onProgress);
+        return targetFile;
+      } catch (e) {
+        print("Download failed via $proxy: $e");
+        // Clean up partial file if download failed
+        if (await targetFile.exists()) {
+          try {
+             await targetFile.delete();
+          } catch (_) {}
+        }
+      }
+    }
+    print("All download strategies failed.");
+    return null;
+  }
+
+  Future<String> _executeCheck(String proxyConf) async {
     final client = HttpClient();
     client.connectionTimeout = const Duration(seconds: 15);
     
@@ -45,6 +66,53 @@ class UpdateRepository {
       }
       
       return await response.transform(utf8.decoder).join();
+    } finally {
+      client.close();
+    }
+  }
+
+  Future<void> _executeDownload(String url, File targetFile, String proxyConf, Function(double) onProgress) async {
+    final client = HttpClient();
+    client.connectionTimeout = const Duration(seconds: 30); // Longer timeout for downloads
+
+    if (proxyConf != "DIRECT") {
+      client.findProxy = (uri) => proxyConf;
+    }
+    client.userAgent = "MiniZivpn-Updater";
+
+    try {
+      final request = await client.getUrl(Uri.parse(url));
+      final response = await request.close();
+
+      if (response.statusCode != 200) {
+        throw Exception("HTTP ${response.statusCode}");
+      }
+
+      final contentLength = response.contentLength;
+
+      if (await targetFile.exists()) {
+        await targetFile.delete();
+      }
+
+      final sink = targetFile.openWrite();
+      int receivedBytes = 0;
+
+      try {
+        await for (var chunk in response) {
+          sink.add(chunk);
+          receivedBytes += chunk.length;
+          if (contentLength > 0) {
+            onProgress(receivedBytes / contentLength.toDouble());
+          }
+        }
+        await sink.flush();
+      } finally {
+        await sink.close();
+      }
+
+      if (contentLength > 0 && targetFile.lengthSync() != contentLength) {
+          throw Exception("Incomplete download");
+      }
     } finally {
       client.close();
     }
