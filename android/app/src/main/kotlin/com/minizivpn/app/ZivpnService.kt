@@ -577,12 +577,8 @@ class ZivpnService : VpnService() {
                 logToApp("[PING] Failed: ${e.message} ($consecutiveFailures/$maxFail)")
                 
                 if (autoReset && consecutiveFailures >= maxFail) {
-                    if (sessionResetCount < 5) {
-                        logToApp("[CONNECTION_LOST] Max failures reached. Triggering Auto Reset (#${sessionResetCount + 1})...")
-                        sessionResetCount++
-                    } else {
-                        logToApp("[AutoPilot] ⛔ Gave up after 5 resets. Internet seems permanently dead.")
-                    }
+                    sessionResetCount++
+                    logToApp("[CONNECTION_LOST] Max failures reached. Triggering Auto Reset (#$sessionResetCount)...")
                     consecutiveFailures = 0
                 }
             }
