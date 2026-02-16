@@ -155,47 +155,42 @@ class MainActivity: FlutterActivity() {
                 val urlStr = call.argument<String>("url")
                 Thread {
                     try {
-                        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
-                        var targetNet: android.net.Network? = null
-                        for (net in cm.allNetworks) {
-                            val caps = cm.getNetworkCapabilities(net)
-                            if (caps != null && caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN)) {
-                                targetNet = net
-                                Log.d("ZIVPN-Updater", "Found VPN Network: $net")
-                                break
-                            }
-                        }
-                        if (targetNet == null) {
-                             Log.d("ZIVPN-Updater", "No VPN found, using active: ${cm.activeNetwork}")
-                             targetNet = cm.activeNetwork
-                        }
-
-                        if (targetNet != null) {
-                            Log.d("ZIVPN-Updater", "Using Network: $targetNet for $urlStr")
-                            val url = java.net.URL(urlStr)
-                            val conn = targetNet.openConnection(url) as java.net.HttpURLConnection
-                            conn.connectTimeout = 15000
-                            conn.readTimeout = 15000
-                            conn.setRequestProperty("User-Agent", "MiniZIVPN-Updater")
-                            
-                            val responseCode = conn.responseCode
-                            Log.d("ZIVPN-Updater", "Response Code: $responseCode")
-
-                            val reader = java.io.BufferedReader(java.io.InputStreamReader(conn.inputStream))
-                            val sb = StringBuilder()
-                            var line: String?
-                            while (reader.readLine().also { line = it } != null) sb.append(line)
-                            reader.close()
-                            
-                            uiHandler.post { result.success(sb.toString()) }
-                        } else {
-                            Log.e("ZIVPN-Updater", "No Network Available")
-                            uiHandler.post { result.error("NO_NET", "No network", null) }
-                        }
+                        val url = java.net.URL(urlStr)
+                        // Use SOCKS5 Proxy to loop back into our own VPN core
+                        // This works even if the app is excluded from the VPN.
+                        val proxy = java.net.Proxy(java.net.Proxy.Type.SOCKS, java.net.InetSocketAddress("127.0.0.1", 7777))
+                        
+                        val conn = url.openConnection(proxy) as java.net.HttpURLConnection
+                        conn.connectTimeout = 15000
+                        conn.readTimeout = 15000
+                        conn.setRequestProperty("User-Agent", "MiniZIVPN-Updater")
+                        
+                        val responseCode = conn.responseCode
+                        val stream = if (responseCode >= 400) conn.errorStream else conn.inputStream
+                        val reader = java.io.BufferedReader(java.io.InputStreamReader(stream))
+                        val sb = StringBuilder()
+                        var line: String?
+                        while (reader.readLine().also { line = it } != null) sb.append(line)
+                        reader.close()
+                        
+                        uiHandler.post { result.success(sb.toString()) }
                     } catch (e: Exception) {
-                        Log.e("ZIVPN-Updater", "Error: ${e.message}")
-                        e.printStackTrace()
-                        uiHandler.post { result.error("ERR", e.message, null) }
+                        Log.e("ZIVPN-Updater", "SOCKS5 Check failed: ${e.message}")
+                        // Fallback to direct if SOCKS5 fails (e.g. VPN not yet ready)
+                        Thread {
+                            try {
+                                val conn = java.net.URL(urlStr).openConnection() as java.net.HttpURLConnection
+                                conn.connectTimeout = 5000
+                                val reader = java.io.BufferedReader(java.io.InputStreamReader(conn.inputStream))
+                                val sb = StringBuilder()
+                                var line: String?
+                                while (reader.readLine().also { line = it } != null) sb.append(line)
+                                reader.close()
+                                uiHandler.post { result.success(sb.toString()) }
+                            } catch (e2: Exception) {
+                                uiHandler.post { result.error("ERR", e2.message, null) }
+                            }
+                        }.start()
                     }
                 }.start()
             } else if (call.method == "downloadUpdateNative") {
@@ -203,39 +198,26 @@ class MainActivity: FlutterActivity() {
                 val destPath = call.argument<String>("path")
                 Thread {
                     try {
-                        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
-                        var targetNet: android.net.Network? = null
-                        for (net in cm.allNetworks) {
-                            val caps = cm.getNetworkCapabilities(net)
-                            if (caps != null && caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN)) {
-                                targetNet = net
-                                break
-                            }
+                        val url = java.net.URL(urlStr)
+                        val proxy = java.net.Proxy(java.net.Proxy.Type.SOCKS, java.net.InetSocketAddress("127.0.0.1", 7777))
+                        
+                        val conn = url.openConnection(proxy) as java.net.HttpURLConnection
+                        conn.connectTimeout = 30000
+                        conn.setRequestProperty("User-Agent", "MiniZIVPN-Updater")
+                        
+                        val input = conn.inputStream
+                        val output = java.io.FileOutputStream(destPath)
+                        val buffer = ByteArray(8192)
+                        var bytesRead: Int
+                        while (input.read(buffer).also { bytesRead = it } != -1) {
+                            output.write(buffer, 0, bytesRead)
                         }
-                        if (targetNet == null) targetNet = cm.activeNetwork
-
-                        if (targetNet != null && urlStr != null && destPath != null) {
-                            val url = java.net.URL(urlStr)
-                            val conn = targetNet.openConnection(url) as java.net.HttpURLConnection
-                            conn.connectTimeout = 30000
-                            conn.readTimeout = 30000
-                            conn.setRequestProperty("User-Agent", "MiniZIVPN-Updater")
-                            
-                            val input = conn.inputStream
-                            val output = java.io.FileOutputStream(destPath)
-                            val buffer = ByteArray(4096)
-                            var bytesRead: Int
-                            while (input.read(buffer).also { bytesRead = it } != -1) {
-                                output.write(buffer, 0, bytesRead)
-                            }
-                            output.close()
-                            input.close()
-                            
-                            uiHandler.post { result.success("OK") }
-                        } else {
-                            uiHandler.post { result.error("FAIL", "Invalid args or no net", null) }
-                        }
+                        output.close()
+                        input.close()
+                        
+                        uiHandler.post { result.success("OK") }
                     } catch (e: Exception) {
+                        Log.e("ZIVPN-Updater", "SOCKS5 Download failed: ${e.message}")
                         uiHandler.post { result.error("ERR", e.message, null) }
                     }
                 }.start()
