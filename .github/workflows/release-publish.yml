@@ -75,12 +75,23 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
         run: |
+          # 1. Build Split APKs (v7a & v8a)
+          flutter build apk --release --split-per-abi --target-platform android-arm,android-arm64
+          mv build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk build/app/outputs/flutter-apk/ZIVPN-v7a-release.apk
+          mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/ZIVPN-v8a-release.apk
+          
+          # 2. Build Universal APK
           flutter build apk --release --target-platform android-arm,android-arm64
-      - name: Upload Release APK
+          mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/ZIVPN-Universal-release.apk
+
+      - name: Upload Release APKs
         uses: actions/upload-artifact@v4
         with:
-          name: ZIVPN-xSocks-Core-Release
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: ZIVPN-Release-APKs
+          path: |
+            build/app/outputs/flutter-apk/ZIVPN-v7a-release.apk
+            build/app/outputs/flutter-apk/ZIVPN-v8a-release.apk
+            build/app/outputs/flutter-apk/ZIVPN-Universal-release.apk
 
   release:
     needs: build
@@ -95,7 +106,7 @@ jobs:
       - name: Download Artifact
         uses: actions/download-artifact@v4
         with:
-          name: ZIVPN-xSocks-Core-Release
+          name: ZIVPN-Release-APKs
 
       - name: Create Release Tag
         id: tag_version
@@ -113,7 +124,15 @@ jobs:
           body: |
             Automatic build for xSocks Core.
             Run ID: ${{ github.run_id }}
-          files: app-release.apk
+            
+            ### Artifacts
+            - **Universal:** Works on all ARM devices.
+            - **v7a:** For older 32-bit devices.
+            - **v8a:** For newer 64-bit devices (Recommended).
+          files: |
+            ZIVPN-v7a-release.apk
+            ZIVPN-v8a-release.apk
+            ZIVPN-Universal-release.apk
           draft: false
           prerelease: false
         env:
