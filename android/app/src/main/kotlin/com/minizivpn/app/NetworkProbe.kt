@@ -17,23 +17,30 @@ class NetworkProbe(private val context: Context) {
     fun getSmartConfig(): Map<String, Int> {
         val score = getNetworkScore()
         
-        val recvWin: Int
-        val recvConn: Int
+        // --- FLUID DYNAMIC TUNING ---
+        // Instead of buckets, we use a linear mapping formula.
+        // Every single point of score difference will result in a different window size.
         
-        // Strict Thresholds
-        if (score >= 85) {
-            // Excellent Condition (High Band + Clean Signal) -> Throughput Mode
-            recvWin = 655360
-            recvConn = 262144
-        } else if (score >= 55) {
-            // Good Condition -> Balanced Mode
-            recvWin = 327680
-            recvConn = 131072
-        } else {
-            // Poor/Congested/Noisy -> Latency Mode (Anti-Bufferbloat)
-            recvWin = 163840
-            recvConn = 65536
-        }
+        val minWin = 65536   // 64KB (Minimum safe)
+        val maxWin = 1572864 // 1.5MB (Maximum safe for Android heap/buffer)
+        
+        // Calculate raw window based on score (0-100+)
+        // Allow score to go slightly above 100 (bonus bands) for extra boost
+        val effectiveScore = score.coerceIn(0, 120)
+        
+        // Linear Interpolation
+        var rawWin = minWin + ((maxWin - minWin) * (effectiveScore / 100.0)).toInt()
+        
+        // STRICT GATE: If High Noise (SINR penalty was applied inside getNetworkScore),
+        // we heavily dampen the window scaling to prevent bufferbloat.
+        // The score calculation already handles this, but let's be safe.
+        
+        // Align to 4KB (4096 bytes) memory pages for kernel efficiency
+        rawWin = (rawWin / 4096) * 4096
+        
+        val recvWin = rawWin
+        // Connection window is typically 1/3 to 1/2 of receive window
+        val recvConn = (recvWin / 2.5).toInt()
         
         return mapOf(
             "score" to score,
