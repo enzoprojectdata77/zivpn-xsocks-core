@@ -161,18 +161,26 @@ class MainActivity: FlutterActivity() {
                             val caps = cm.getNetworkCapabilities(net)
                             if (caps != null && caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN)) {
                                 targetNet = net
+                                Log.d("ZIVPN-Updater", "Found VPN Network: $net")
                                 break
                             }
                         }
-                        if (targetNet == null) targetNet = cm.activeNetwork
+                        if (targetNet == null) {
+                             Log.d("ZIVPN-Updater", "No VPN found, using active: ${cm.activeNetwork}")
+                             targetNet = cm.activeNetwork
+                        }
 
                         if (targetNet != null) {
+                            Log.d("ZIVPN-Updater", "Using Network: $targetNet for $urlStr")
                             val url = java.net.URL(urlStr)
                             val conn = targetNet.openConnection(url) as java.net.HttpURLConnection
                             conn.connectTimeout = 15000
                             conn.readTimeout = 15000
                             conn.setRequestProperty("User-Agent", "MiniZIVPN-Updater")
                             
+                            val responseCode = conn.responseCode
+                            Log.d("ZIVPN-Updater", "Response Code: $responseCode")
+
                             val reader = java.io.BufferedReader(java.io.InputStreamReader(conn.inputStream))
                             val sb = StringBuilder()
                             var line: String?
@@ -181,9 +189,12 @@ class MainActivity: FlutterActivity() {
                             
                             uiHandler.post { result.success(sb.toString()) }
                         } else {
+                            Log.e("ZIVPN-Updater", "No Network Available")
                             uiHandler.post { result.error("NO_NET", "No network", null) }
                         }
                     } catch (e: Exception) {
+                        Log.e("ZIVPN-Updater", "Error: ${e.message}")
+                        e.printStackTrace()
                         uiHandler.post { result.error("ERR", e.message, null) }
                     }
                 }.start()
