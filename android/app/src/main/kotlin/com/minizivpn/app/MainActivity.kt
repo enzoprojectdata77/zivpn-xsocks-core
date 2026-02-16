@@ -142,6 +142,15 @@ class MainActivity: FlutterActivity() {
             if (call.method == "getInitialFile") {
                 result.success(initialIntentData)
                 initialIntentData = null // Clear after reading
+            } else if (call.method == "getSmartNetworkConfig") {
+                if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                    ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.READ_PHONE_STATE), 101)
+                    result.error("PERMISSION_DENIED", "Permission requested", null)
+                } else {
+                    val probe = NetworkProbe(this)
+                    val config = probe.getSmartConfig()
+                    result.success(config)
+                }
             } else if (call.method == "startCore") {
                 val prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE).edit()
                 

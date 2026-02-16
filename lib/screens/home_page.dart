@@ -298,6 +298,25 @@ class _HomePageState extends State<HomePage> {
       setState(() => _vpnState = "connecting");
 
       try {
+        String recvWin = prefs.getString('hysteria_recv_window') ?? "327680";
+        String recvConn = prefs.getString('hysteria_recv_conn') ?? "131072";
+        final profile = prefs.getString('native_perf_profile') ?? "balanced";
+
+        if (profile == "smart") {
+           try {
+             _logs.add("[SMART] Probing network...");
+             final Map<dynamic, dynamic>? smartConfig = await platform.invokeMethod('getSmartNetworkConfig');
+             if (smartConfig != null) {
+                recvWin = smartConfig['recv_win'].toString();
+                recvConn = smartConfig['recv_conn'].toString();
+                final score = smartConfig['score'];
+                _logs.add("[SMART] Network Score: $score/100. Applied dynamic tuning.");
+             }
+           } catch (e) {
+             _logs.add("[SMART] Failed to probe network: $e");
+           }
+        }
+
         await platform.invokeMethod('startCore', {
           "ip": ip,
           "port_range": prefs.getString('port_range') ?? "6000-19999",
@@ -321,7 +340,7 @@ class _HomePageState extends State<HomePage> {
           "core_count": (prefs.getInt('core_count') ?? 4),
           "cpu_wakelock": prefs.getBool('cpu_wakelock') ?? false,
           "udpgw_transparent_dns": prefs.getBool('udpgw_transparent_dns') ?? false,
-          "native_perf_profile": prefs.getString('native_perf_profile') ?? "balanced",
+          "native_perf_profile": profile,
           "pdnsd_port": prefs.getInt('pdnsd_port') ?? 8091,
           "pdnsd_cache_entries": prefs.getInt('pdnsd_cache_entries') ?? 2048,
           "pdnsd_timeout_sec": prefs.getInt('pdnsd_timeout_sec') ?? 10,
@@ -329,8 +348,8 @@ class _HomePageState extends State<HomePage> {
           "pdnsd_max_ttl": prefs.getString('pdnsd_max_ttl') ?? "1w",
           "pdnsd_query_method": prefs.getString('pdnsd_query_method') ?? "tcp_only",
           "pdnsd_verbosity": prefs.getInt('pdnsd_verbosity') ?? 2,
-          "hysteria_recv_window": prefs.getString('hysteria_recv_window') ?? "327680",
-          "hysteria_recv_conn": prefs.getString('hysteria_recv_conn') ?? "131072"
+          "hysteria_recv_window": recvWin,
+          "hysteria_recv_conn": recvConn
         });
         await platform.invokeMethod('startVpn');
 

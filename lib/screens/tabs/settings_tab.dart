@@ -369,7 +369,7 @@ class _SettingsTabState extends State<SettingsTab> {
               'Native Performance Profile',
               'Preset tuning tun2socks + pdnsd',
               _nativePerfProfile,
-              const ['balanced', 'throughput', 'latency', 'custom'],
+              const ['balanced', 'throughput', 'latency', 'custom', 'smart'],
               (val) {
                 setState(() => _nativePerfProfile = val!);
                 _applyPreset(val!);
